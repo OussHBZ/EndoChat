@@ -1,40 +1,45 @@
-EndoChat
+markdown# EndoChat
+
 <p align="center">
-  <img src="static/img/endo_logo.png" alt="EndoChat Logo" width="120">
+ <img src="static/img/endo_logo.png" alt="EndoChat Logo" width="120">
 </p>
+
 EndoChat is an AI-powered assistant specializing in endocrinology, designed to provide accurate, patient-friendly information about endocrine disorders, treatments, and related medical topics. Built using Retrieval Augmented Generation (RAG) technology, EndoChat delivers contextually relevant responses derived from a curated knowledge base of endocrinology documents.
-🌟 Features
 
-Patient-Friendly Explanations: Complex medical concepts translated into accessible language
-Source Citations: References to original documents with page numbers for verification
-Multilingual Support: Available in English, French, and Arabic
-Document-Backed Responses: Information retrieved from trusted endocrinology sources
-PDF Document Integration: Automatic processing of medical literature
-Interactive Interface: Clean, responsive design with voice input/output capabilities
-Conversation Context: Maintains dialogue history for coherent interactions
-Image Support: Displays relevant medical visualizations when available
+## 🌟 Features
 
-🧪 Technology Stack
+- **Patient-Friendly Explanations**: Complex medical concepts translated into accessible language
+- **Source Citations**: References to original documents with page numbers for verification
+- **Multilingual Support**: Available in English, French, and Arabic
+- **Document-Backed Responses**: Information retrieved from trusted endocrinology sources
+- **PDF Document Integration**: Automatic processing of medical literature
+- **Interactive Interface**: Clean, responsive design with voice input/output capabilities
+- **Conversation Context**: Maintains dialogue history for coherent interactions
+- **Image Support**: Displays relevant medical visualizations when available
 
-Backend: Flask web server
-RAG Pipeline: LangChain for document processing
-Vector Database: Chroma for semantic document storage
-Embeddings: Sentence-transformers for high-quality document representations
-LLM: Groq API with Llama models for response generation
-Frontend: HTML, CSS, JavaScript with TailwindCSS
+## 🧪 Technology Stack
 
-🛠️ Installation
-Prerequisites
+- **Backend**: Flask web server
+- **RAG Pipeline**: LangChain for document processing
+- **Vector Database**: Chroma for semantic document storage
+- **Embeddings**: Sentence-transformers for high-quality document representations
+- **LLM**: Groq API with Llama models for response generation
+- **Frontend**: HTML, CSS, JavaScript with TailwindCSS
 
-Python 3.9+
-Groq API key
-PDF documents for the knowledge base
+## 🛠️ Installation
 
-Setup Steps
+### Prerequisites
 
-Clone the repository
-bashgit clone https://github.com/yourusername/EndoChat.git
-cd EndoChat
+- Python 3.9+
+- [Groq API key](https://console.groq.com/docs/quickstart)
+- PDF documents for the knowledge base
+
+### Setup Steps
+
+1. **Clone the repository**
+  ```bash
+  git clone https://github.com/OussHBZ/EndoChat.git
+  cd EndoChat
 
 Create and activate a virtual environment
 bash# Create virtual environment
@@ -129,3 +134,4 @@ TailwindCSS for responsive styling
 <p align="center">
   Made with ❤️ for better patient education in endocrinology
 </p>
+```
