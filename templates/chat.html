@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="EndoChat - Your AI assistant for endocrinology.">
+    <meta name="keywords" content="AI, endocrinology, chatbot, health, medicine">
+    <title>EndoChat</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='img/endo_logo.png') }}" type="image/x-icon">
+    
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- External Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    
+    <style>
+        /* Language selection styles */
+        #language-selector {
+            display: none; /* Initially hidden, will be shown via JS */
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 20px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .language-btn {
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background-color: white;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .language-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-color: #3b82f6;
+            background-color: #f0f7ff;
+        }
+        
+        .language-btn img {
+            margin-right: 10px;
+            height: 20px;
+            width: auto;
+        }
+        
+        /* Flash message for language selection */
+        .language-selection-reminder {
+            margin: 0 auto 16px auto;
+            padding: 12px 16px;
+            background-color: #fff9db;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            color: #856404;
+            max-width: 90%;
+            animation: fadeInOut 5s ease-in-out;
+        }
+        
+        /* Sources button and list styling */
+        .sources-button {
+            padding: 6px 12px;
+            border-radius: 6px;
+            background-color: #f0f7ff;
+            border: 1px solid #dbeafe;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .sources-button:hover {
+            background-color: #e0f2fe;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sources-list {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .sources-header {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+        
+        .source-item {
+            margin-bottom: 8px;
+            animation: fadeIn 0.3s ease-in-out;
+            animation-fill-mode: both;
+        }
+        
+        .source-download-link {
+            display: inline-flex;
+            align-items: center;
+            color: #2563eb;
+            text-decoration: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .source-download-link:hover {
+            background-color: #e0f2fe;
+            text-decoration: underline;
+        }
+        
+        .source-download-link i {
+            margin-right: 6px;
+            color: #ef4444;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        /* RTL support for Arabic */
+        [dir="rtl"] .language-btn img {
+            margin-right: 0;
+            margin-left: 10px;
+        }
+        
+        [dir="rtl"] .source-download-link i {
+            margin-right: 0;
+            margin-left: 6px;
+        }
+        
+        [dir="rtl"] .sources-button i {
+            margin-right: 0;
+            margin-left: 6px;
+        }
+    </style>
+    <script>
+  // Check for Web Speech API support on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            const speechRecognitionSupported = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+            const speechSynthesisSupported = 'speechSynthesis' in window;
+            
+            if (!speechRecognitionSupported) {
+            console.warn("Speech Recognition API not supported in this browser");
+            }
+            
+            if (!speechSynthesisSupported) {
+            console.warn("Speech Synthesis API not supported in this browser");
+            }
+            
+            // Make support info available globally
+            window.speechSupport = {
+            recognition: speechRecognitionSupported,
+            synthesis: speechSynthesisSupported
+            };
+        });
+    </script>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-900 flex flex-col h-screen">
+    <!-- Header -->
+    <header class="border-b border-gray-200 bg-white shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center space-x-3">
+                <img src="{{ url_for('static', filename='img/endo_logo.png') }}" alt="EndoChat Logo" class="h-10 w-10">
+                <h1 class="text-2xl font-semibold text-blue-700">EndoChat</h1>
+            </div>
+            <div class="text-gray-600 text-base md:text-lg mt-2 md:mt-0" id="app-subtitle">
+                AI assistant for endocrinology
+            </div>
+        </div>
+    </header>
+    
+    <!-- Language Selection Panel -->
+    <div id="language-selector" class="w-full py-6">
+        <div class="max-w-5xl mx-auto px-4">
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-medium text-gray-800 mb-2">Select your language</h2>
+                <p class="text-gray-600">Choose your preferred language for the conversation</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-4">
+                <button class="language-btn" data-lang="en">
+                    <img src="https://flagcdn.com/w40/gb.png" alt="English" class="h-5">
+                    English
+                </button>
+                <button class="language-btn" data-lang="fr">
+                    <img src="https://flagcdn.com/w40/fr.png" alt="Français" class="h-5">
+                    Français
+                </button>
+                <button class="language-btn" data-lang="ar">
+                    <img src="https://flagcdn.com/w40/sa.png" alt="العربية" class="h-5">
+                    العربية
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Container -->
+    <main class="flex-1 overflow-y-auto bg-gray-50" id="chat-container">
+        <div id="chat-history" class="max-w-4xl mx-auto p-4 space-y-6">
+            <!-- Chat messages will appear here -->
+        </div>
+    </main>
+
+    <!-- Chat Input -->
+    <div class="border-t border-gray-200 bg-white p-4 shadow-inner">
+        <form id="chat-form" class="max-w-3xl mx-auto">
+            <div class="flex gap-4 items-end">
+                <div class="flex-1 relative">
+                    <textarea
+                        id="chat-input"
+                        placeholder="Ask your question..."
+                        rows="1"
+                        class="w-full resize-none rounded-lg border border-gray-300 shadow-sm pl-4 pr-12 py-3 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        style="min-height: 52px; max-height: 200px;"
+                    ></textarea>
+                    <button
+                        type="submit"
+                        id="send-button"
+                        class="absolute right-2 bottom-2 p-2 rounded-lg text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                        aria-label="Send"
+                    >
+                        <i data-feather="send"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mt-2 text-xs text-gray-500 text-center">
+                <span id="enter-hint">Press Enter to send, Shift+Enter for a new line</span>
+            </div>
+        </form>
+    </div>
+
+    <!-- Custom Scripts -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <div id="speech-accessibility-elements" role="region" aria-live="polite" class="sr-only"></div>
+</body>
+</html>

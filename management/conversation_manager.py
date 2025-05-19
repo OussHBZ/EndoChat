@@ -1,0 +1,137 @@
+import os
+import json
+import time
+import logging
+from datetime import datetime, timedelta
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Define paths
+CONVERSATION_PATH = "./conversations"
+MAX_CONVERSATION_AGE_DAYS = 30
+
+class ConversationManager:
+    """Manages conversation histories for users"""
+    
+    def __init__(self):
+        """Initialize the conversation manager"""
+        # Create the conversations directory if it doesn't exist
+        if not os.path.exists(CONVERSATION_PATH):
+            os.makedirs(CONVERSATION_PATH)
+            logger.info(f"Created conversations directory at {CONVERSATION_PATH}")
+    
+    def save_conversation(self, conversation_history, user_identifier):
+        """Save a conversation history to disk"""
+        try:
+            # Create a safe filename from the user identifier
+            filename = self._get_safe_filename(user_identifier)
+            file_path = os.path.join(CONVERSATION_PATH, f"{filename}.json")
+            
+            # Save the conversation history with timestamp
+            conversation_data = {
+                'history': conversation_history,
+                'last_updated': time.time()
+            }
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(conversation_data, f, ensure_ascii=False, indent=2)
+            
+            logger.debug(f"Saved conversation for user {user_identifier}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving conversation: {str(e)}")
+            return False
+    
+    def load_conversation(self, user_identifier):
+        """Load a conversation history from disk"""
+        try:
+            # Create a safe filename from the user identifier
+            filename = self._get_safe_filename(user_identifier)
+            file_path = os.path.join(CONVERSATION_PATH, f"{filename}.json")
+            
+            # Check if the file exists
+            if not os.path.exists(file_path):
+                return []
+            
+            # Load the conversation history
+            with open(file_path, 'r', encoding='utf-8') as f:
+                conversation_data = json.load(f)
+            
+            # Update the last access time
+            conversation_data['last_updated'] = time.time()
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(conversation_data, f, ensure_ascii=False, indent=2)
+            
+            logger.debug(f"Loaded conversation for user {user_identifier}")
+            return conversation_data.get('history', [])
+            
+        except Exception as e:
+            logger.error(f"Error loading conversation: {str(e)}")
+            return []
+    
+    def delete_conversation(self, user_identifier):
+        """Delete a conversation history from disk"""
+        try:
+            # Create a safe filename from the user identifier
+            filename = self._get_safe_filename(user_identifier)
+            file_path = os.path.join(CONVERSATION_PATH, f"{filename}.json")
+            
+            # Check if the file exists
+            if not os.path.exists(file_path):
+                logger.debug(f"No conversation found for user {user_identifier}")
+                return False
+            
+            # Delete the file
+            os.remove(file_path)
+            logger.info(f"Deleted conversation for user {user_identifier}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting conversation: {str(e)}")
+            return False
+    
+    def cleanup_old_conversations(self):
+        """Delete conversations that are older than MAX_CONVERSATION_AGE_DAYS"""
+        try:
+            # Get the current time
+            current_time = time.time()
+            max_age = MAX_CONVERSATION_AGE_DAYS * 24 * 60 * 60  # Convert days to seconds
+            
+            # Check each conversation file
+            count = 0
+            for filename in os.listdir(CONVERSATION_PATH):
+                if not filename.endswith('.json'):
+                    continue
+                
+                file_path = os.path.join(CONVERSATION_PATH, filename)
+                
+                try:
+                    # Load the conversation data
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        conversation_data = json.load(f)
+                    
+                    # Check if the conversation is too old
+                    last_updated = conversation_data.get('last_updated', 0)
+                    if current_time - last_updated > max_age:
+                        # Delete the file
+                        os.remove(file_path)
+                        count += 1
+                        logger.debug(f"Deleted old conversation: {filename}")
+                
+                except Exception as e:
+                    logger.error(f"Error processing conversation file {filename}: {str(e)}")
+            
+            logger.info(f"Cleanup completed. Deleted {count} old conversations.")
+            return count
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup_old_conversations: {str(e)}")
+            return 0
+    
+    def _get_safe_filename(self, user_identifier):
+        """Create a safe filename from a user identifier"""
+        # Replace any non-alphanumeric characters with underscores
+        return ''.join(c if c.isalnum() else '_' for c in str(user_identifier))
