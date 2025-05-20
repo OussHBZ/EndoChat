@@ -58,15 +58,28 @@ class ConversationManager:
             
             # Load the conversation history
             with open(file_path, 'r', encoding='utf-8') as f:
-                conversation_data = json.load(f)
+                data = json.load(f)
             
-            # Update the last access time
-            conversation_data['last_updated'] = time.time()
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(conversation_data, f, ensure_ascii=False, indent=2)
+            # Handle both old format (list) and new format (dict with 'history' key)
+            if isinstance(data, list):
+                # Old format - direct list
+                conversation_history = data
+                # Convert to new format for future compatibility
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'history': conversation_history,
+                        'last_updated': time.time()
+                    }, f, ensure_ascii=False, indent=2)
+            else:
+                # New format - dictionary with 'history' key
+                conversation_history = data.get('history', [])
+                # Update the last access time
+                data['last_updated'] = time.time()
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
             
             logger.debug(f"Loaded conversation for user {user_identifier}")
-            return conversation_data.get('history', [])
+            return conversation_history
             
         except Exception as e:
             logger.error(f"Error loading conversation: {str(e)}")
