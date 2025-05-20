@@ -1,48 +1,26 @@
-markdown# EndoChat
+EndoChat
+EndoChat is an AI-powered chatbot specializing in endocrinology. It uses Retrieval Augmented Generation (RAG) to provide accurate and context-aware responses for patients seeking information about endocrine disorders, treatments, and related medical topics.
 
-<p align="center">
- <img src="static/img/endo_logo.png" alt="EndoChat Logo" width="120">
-</p>
-
-EndoChat is an AI-powered assistant specializing in endocrinology, designed to provide accurate, patient-friendly information about endocrine disorders, treatments, and related medical topics. Built using Retrieval Augmented Generation (RAG) technology, EndoChat delivers contextually relevant responses derived from a curated knowledge base of endocrinology documents.
-
-## 🌟 Features
-
-- **Patient-Friendly Explanations**: Complex medical concepts translated into accessible language
-- **Source Citations**: References to original documents with page numbers for verification
-- **Multilingual Support**: Available in English, French, and Arabic
-- **Document-Backed Responses**: Information retrieved from trusted endocrinology sources
-- **PDF Document Integration**: Automatic processing of medical literature
-- **Interactive Interface**: Clean, responsive design with voice input/output capabilities
-- **Conversation Context**: Maintains dialogue history for coherent interactions
-- **Image Support**: Displays relevant medical visualizations when available
-
-## 🧪 Technology Stack
-
-- **Backend**: Flask web server
-- **RAG Pipeline**: LangChain for document processing
-- **Vector Database**: Chroma for semantic document storage
-- **Embeddings**: Sentence-transformers for high-quality document representations
-- **LLM**: Groq API with Llama models for response generation
-- **Frontend**: HTML, CSS, JavaScript with TailwindCSS
-
-## 🛠️ Installation
-
-### Prerequisites
-
-- Python 3.9+
-- [Groq API key](https://console.groq.com/docs/quickstart)
-- PDF documents for the knowledge base
-
-### Setup Steps
-
-1. **Clone the repository**
-  ```bash
-  git clone https://github.com/OussHBZ/EndoChat.git
-  cd EndoChat
-
-Create and activate a virtual environment
-bash# Create virtual environment
+Features
+Patient-Focused Responses: Provides easy-to-understand information about endocrinology tailored for patients.
+Source Citations: Includes references to source documents with page numbers and downloadable PDFs.
+Image Support: Displays relevant medical images when available.
+RAG-based Document Retrieval: Finds and retrieves the most relevant information from endocrinology documents.
+PDF Document Processing: Automatically processes PDF documents for text content.
+Semantic Search: Uses sentence-transformers models for high-quality document embeddings.
+Conversation Management: Maintains conversation history for contextual understanding.
+Modern UI: Clean and responsive user interface for a seamless chat experience.
+Requirements
+Python 3.9+
+Flask
+LangChain
+Groq API key (for LLaMa access)
+sentence-transformers (for embeddings)
+Setup and Usage Instructions
+1. Initial Setup
+Create and activate the virtual environment
+bash
+# Create a virtual environment
 python -m venv env
 
 # Activate on Windows
@@ -52,45 +30,36 @@ env\Scripts\activate
 source env/bin/activate
 
 Install dependencies
-bashpip install -r requirements.txt
+bash
+# Upgrade pip
+python -m pip install --upgrade pip
 
-Configure environment variables
-bash# Copy the template
-cp .env.template .env
+# Install dependencies
+pip install -r requirements.txt
+2. Project Structure Setup
+Run the setup script to create necessary directories
+bash
+python setup.py
+3. Configuration
+Set up environment variables
+bash
+# Copy the template
+copy .env.template .env
 
-# Edit the .env file with your Groq API key
+# Edit the .env file with your API key
+# Replace 'your_groq_api_key_here' with your actual Groq API key
+4. Add Documents
+Place your endocrinology PDF documents in the data directory
+bash
+# Create data directory if it doesn't exist
+mkdir -p data
 
-Create required directories
-bashmkdir -p data chroma_db conversations static/extracted_images
-
-Add endocrinology documents
-bash# Copy your PDF files to the data directory
-cp /path/to/your/documents/*.pdf data/
-
-Process documents to generate embeddings
-bashpython load_data.py
-
-Start the application
-bashpython app.py
-
-Access the application
-Open your browser and navigate to: http://localhost:5000
-
-🧑‍💻 Usage
-
-Select your preferred language from the welcome screen
-Ask endocrinology-related questions in the chat interface
-View source documents by clicking on the "View Sources" button in responses
-Download referenced PDFs directly from the source citations
-Use voice input/output with the microphone and speaker buttons
-
-🔧 Administration
-Document Management
-To update your knowledge base:
-bash# Add new PDF files to the data directory
-cp new_documents/*.pdf data/
-
-# Process the new documents
+# Copy your PDF files to the data directory
+# Example:
+# copy "path\to\your\endocrinology_document.pdf" data\
+5. Process Documents
+Process the documents to generate embeddings
+bash
 python load_data.py
 Database Reset
 bash# Reset everything
@@ -122,16 +91,4 @@ Voice features not working? Check browser permissions for microphone access
 
 📄 License
 MIT License
-🙏 Acknowledgements
 
-LangChain for the RAG implementation
-Groq for LLM API access
-Sentence-Transformers for embedding models
-Flask for the web framework
-TailwindCSS for responsive styling
-
-
-<p align="center">
-  Made with ❤️ for better patient education in endocrinology
-</p>
-```
