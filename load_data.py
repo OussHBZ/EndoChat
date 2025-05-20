@@ -244,64 +244,6 @@ def process_endocrinology_documents():
     except Exception as e:
         logging.exception("Exception occurred in process_endocrinology_documents")
         return False
-    
-def process_endocrinology_documents_with_images():
-    """Main process for embedding generation and image extraction"""
-    logging.debug("Starting process_endocrinology_documents_with_images")
-    try:
-        tic = time.time()
-        
-        # Ensure data directory exists
-        if not os.path.exists(DATA_PATH):
-            os.makedirs(DATA_PATH)
-            logging.debug(f"Created data directory at {DATA_PATH}")
-        
-        # 1. Process documents and generate embeddings
-        processor = PDFProcessor()
-        success = processor.process_pdfs()
-        
-        # 2. Extract images from PDF documents
-
-    except Exception as e:
-        logging.exception("Exception occurred in process_endocrinology_documents_with_images")
-        return False
-def load_documents(self, pdf_paths):
-    """Load specific PDF documents with original page number preservation"""
-    logging.debug("Loading endocrinology documents")
-    try:
-        documents = []
-        for pdf_path in pdf_paths:
-            loader = PyPDFDirectoryLoader(os.path.dirname(pdf_path), 
-                                    glob=os.path.basename(pdf_path))
-            docs = loader.load()
-        
-            # Process page numbers - ensure they're stored as integers
-            for doc in docs:
-                if 'page' in doc.metadata:
-                    # Convert to 1-based page numbering (PDF pages usually start at 1)
-                    try:
-                        page_num = doc.metadata['page']
-                        if isinstance(page_num, (int, float)):
-                            doc.metadata['page'] = int(page_num) + 1  # Convert 0-based to 1-based
-                        elif isinstance(page_num, str) and page_num.isdigit():
-                            doc.metadata['page'] = int(page_num) + 1
-                    except (ValueError, TypeError):
-                        # If conversion fails, keep original
-                        logging.warning(f"Could not convert page number to int: {doc.metadata['page']}")
-                    
-                # Add document type for better filtering later
-                doc.metadata['doc_type'] = 'endocrinology'
-                
-            documents.extend(docs)
-        
-        for doc in documents:
-            logging.debug(f"Document Source: {doc.metadata.get('source')}")
-            logging.debug(f"Document Page: {doc.metadata.get('page')}")
-        
-        return documents
-    except Exception as e:
-        logging.exception("Exception occurred in load_documents")
-        return None
 
 if __name__ == "__main__":
-    process_endocrinology_documents_with_images()
+    process_endocrinology_documents()
