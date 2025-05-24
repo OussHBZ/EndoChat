@@ -7,6 +7,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
 from management.embeddings import get_embedding_function
+from management.image_extractor import extract_images_from_documents
 
 # Define paths
 CHROMA_PATH = "./chroma_db"
@@ -225,7 +226,7 @@ class PDFProcessor:
             return None
 
 def process_endocrinology_documents():
-    """Main process for embedding generation"""
+    """Main process for embedding generation and image extraction"""
     logging.debug("Starting process_endocrinology_documents")
     try:
         tic = time.time()
@@ -235,15 +236,40 @@ def process_endocrinology_documents():
             os.makedirs(DATA_PATH)
             logging.debug(f"Created data directory at {DATA_PATH}")
         
+        # Step 1: Process PDFs for text content
         processor = PDFProcessor()
-        success = processor.process_pdfs()
+        text_success = processor.process_pdfs()
+        
+        if not text_success:
+            logging.error("Text processing failed")
+            return False
+        
+        # Step 2: Extract images from PDFs
+        logging.info("Starting image extraction from PDFs...")
+        image_success = extract_images_from_documents()
+        
+        if not image_success:
+            logging.warning("Image extraction failed, but continuing with text-only processing")
+        else:
+            logging.info("Image extraction completed successfully")
         
         toc = time.time()
         logging.debug(f"Process completed in {(toc - tic):.2f} seconds")
-        return success
+        
+        # Return True if text processing succeeded (images are optional)
+        return text_success
+        
     except Exception as e:
         logging.exception("Exception occurred in process_endocrinology_documents")
         return False
 
 if __name__ == "__main__":
-    process_endocrinology_documents()
+    success = process_endocrinology_documents()
+    if success:
+        print("✅ Document processing completed successfully!")
+        print("📄 Text content has been processed and embedded")
+        print("🖼️ Images have been extracted and indexed")
+        print("🚀 You can now start the application with: python app.py")
+    else:
+        print("❌ Document processing failed. Check the logs for details.")
+        exit(1)

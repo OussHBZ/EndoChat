@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from management.compare_texts import find_document_similarity, update_conversation_history, normalize_filename
 from management.conversation_manager import ConversationManager
+from management.polly_tts import PollyTTSManager
+from management.image_extractor import ImageExtractor
 import os
 import threading
 import time
@@ -14,6 +16,7 @@ import json, re
 
 CONVERSATION_PATH = "./conversations"
 CHROMA_PATH = "./chroma_db"
+
 def create_app():
     app = Flask(__name__, static_folder='static', template_folder='templates')
     
@@ -23,7 +26,15 @@ def create_app():
     
     # Initialize managers and extractors
     conversation_manager = ConversationManager()
+    image_extractor = ImageExtractor()
     logger.info("Starting application initialization...")
+    
+    # Initialize Polly TTS Manager
+    polly_manager = PollyTTSManager()
+    if polly_manager.is_service_available():
+        logger.info("Amazon Polly TTS service initialized successfully")
+    else:
+        logger.warning("Amazon Polly TTS service not available - check AWS credentials")
     
     # Pre-load embedding model and initialize Chroma DB
     try:
@@ -55,6 +66,8 @@ def create_app():
         while app.config['cleanup_thread_running']:
             try:
                 conversation_manager.cleanup_old_conversations()
+                # Also cleanup orphaned images
+                image_extractor.cleanup_orphaned_images()
                 logger.info("Cleanup completed, sleeping for 1 hour...")
                 for _ in range(60):
                     if not app.config['cleanup_thread_running']:
@@ -127,6 +140,114 @@ def create_app():
             logger.error(f"Request {request_id} - Error processing chat request: {str(e)}")
             return jsonify({
                 'error': 'An error occurred processing your request',
+                'details': str(e)
+            }), 500
+
+    @app.route('/synthesize_speech', methods=['POST'])
+    def synthesize_speech():
+        """Endpoint to generate TTS audio using Amazon Polly"""
+        try:
+            data = request.json
+            text = data.get('text', '')
+            language = data.get('language', 'en')
+            
+            if not text.strip():
+                return jsonify({'error': 'No text provided'}), 400
+            
+            if not polly_manager.is_service_available():
+                return jsonify({'error': 'TTS service not available'}), 503
+            
+            # Generate audio file
+            audio_file_path = polly_manager.synthesize_speech(text, language)
+            
+            if audio_file_path:
+                return jsonify({
+                    'success': True,
+                    'audio_url': f'/static/{audio_file_path}'
+                })
+            else:
+                return jsonify({'error': 'Failed to generate audio'}), 500
+                
+        except Exception as e:
+            logger.error(f"Error in synthesize_speech: {str(e)}")
+            return jsonify({'error': 'Internal server error'}), 500
+
+    @app.route('/tts_status', methods=['GET'])
+    def tts_status():
+        """Check if TTS service is available"""
+        try:
+            is_available = polly_manager.is_service_available()
+            voices = polly_manager.get_available_voices() if is_available else []
+            
+            return jsonify({
+                'available': is_available,
+                'voices_count': len(voices),
+                'service': 'Amazon Polly'
+            })
+        except Exception as e:
+            logger.error(f"Error checking TTS status: {str(e)}")
+            return jsonify({
+                'available': False,
+                'error': str(e)
+            })
+
+    @app.route('/get_images', methods=['POST'])
+    def get_images():
+        """Get relevant images for a user session"""
+        try:
+            data = request.json
+            user_identifier = data.get('user_identifier')
+            
+            if not user_identifier:
+                return jsonify({'error': 'User identifier not provided'}), 400
+                
+            # Create a safe filename
+            filename = ''.join(c for c in user_identifier if c.isalnum())
+            images_file_path = os.path.join(CONVERSATION_PATH, f"{filename}_images.json")
+            
+            # Check if the images file exists
+            if not os.path.exists(images_file_path):
+                return jsonify({'images': []})
+                
+            # Load the images
+            with open(images_file_path, 'r', encoding='utf-8') as f:
+                images = json.load(f)
+                
+            # Add full URL paths for frontend
+            for image in images:
+                image['url'] = f"/static/extracted_images/{image['filename']}"
+                
+            return jsonify({'images': images})
+            
+        except Exception as e:
+            logger.error(f"Error in get_images: {str(e)}")
+            return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
+    @app.route('/extract_images', methods=['POST'])
+    def extract_images():
+        """Manually trigger image extraction from PDFs"""
+        try:
+            success = image_extractor.process_pdfs_for_images()
+            
+            if success:
+                # Get count of extracted images
+                all_images = image_extractor.get_all_images()
+                return jsonify({
+                    'success': True,
+                    'message': f'Image extraction completed. {len(all_images)} images available.',
+                    'images_count': len(all_images)
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Image extraction failed'
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"Error in extract_images: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': 'Internal server error',
                 'details': str(e)
             }), 500
         

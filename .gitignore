@@ -30,8 +30,10 @@ chroma_db/
 conversations/
 data/
 processed_files.json
+extracted_images_metadata.json
 .env
 static/extracted_images/
+static/audio_cache/
 
 # Logs
 *.log

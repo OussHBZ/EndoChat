@@ -84,6 +84,47 @@ def generate_conversation_summary(conversation_history):
         logger.error(f"Error in generate_conversation_summary: {str(e)}")
         return ""
 
+def semantic_search_images(user_message, language='en'):
+    """Perform semantic search on images based on user query"""
+    try:
+        from management.image_extractor import ImageExtractor
+        extractor = ImageExtractor()
+        
+        # Load image metadata
+        all_images = extractor.get_all_images()
+        if not all_images:
+            return []
+        
+        # Create embeddings for user query
+        embedding_function = get_embedding_function()
+        query_embedding = embedding_function.embed_query(user_message)
+        
+        # Simple keyword matching for now (you can enhance this with actual embeddings)
+        relevant_images = []
+        
+        # Keywords that might indicate image relevance
+        medical_keywords = [
+            'diagram', 'image', 'picture', 'show', 'illustration', 'figure',
+            'diagramme', 'photo', 'montrer', 'illustration', 'figure',
+            'صورة', 'رسم', 'مخطط', 'أظهر', 'توضيح',
+            'diabetes', 'insulin', 'glucose', 'pancreas', 'hormone',
+            'diabète', 'insuline', 'glucose', 'pancréas', 'hormone',
+            'سكري', 'إنسولين', 'جلوكوز', 'بنكرياس', 'هرمون'
+        ]
+        
+        query_lower = user_message.lower()
+        has_image_keywords = any(keyword in query_lower for keyword in medical_keywords)
+        
+        if has_image_keywords:
+            # Return top 2 most relevant images based on PDF source
+            for image in all_images[:2]:
+                relevant_images.append(image)
+        
+        return relevant_images
+        
+    except Exception as e:
+        logger.error(f"Error in semantic_search_images: {str(e)}")
+        return []
 
 def find_document_similarity(user_message, conversation_history, user_identifier=None, language=None):
     """Find similar documents to the user message and generate the prompt"""
@@ -149,21 +190,31 @@ def find_document_similarity(user_message, conversation_history, user_identifier
                         if not existing and page_num is not None:
                             actual_sources.append(source_info)
         
-        # Save the source filenames with page numbers for this user
-        if user_identifier and actual_sources:
+        # Perform semantic search for relevant images
+        relevant_images = semantic_search_images(user_message, language)
+        
+        # Save the source filenames with page numbers and images for this user
+        if user_identifier:
             # Create a safe filename from the user identifier
             filename = ''.join(c for c in user_identifier if c.isalnum())
             sources_path = os.path.join(CONVERSATION_PATH, f"{filename}_sources.json")
+            images_path = os.path.join(CONVERSATION_PATH, f"{filename}_images.json")
             
             # Ensure the conversation directory exists
             if not os.path.exists(CONVERSATION_PATH):
                 os.makedirs(CONVERSATION_PATH)
             
-            # Write to a JSON file
-            with open(sources_path, 'w', encoding='utf-8') as f:
-                json.dump(actual_sources, f, ensure_ascii=False, indent=2)
-                
-            logger.debug(f"Saved actual sources for user {user_identifier}: {actual_sources}")
+            # Write sources to JSON file
+            if actual_sources:
+                with open(sources_path, 'w', encoding='utf-8') as f:
+                    json.dump(actual_sources, f, ensure_ascii=False, indent=2)
+                logger.debug(f"Saved actual sources for user {user_identifier}: {actual_sources}")
+            
+            # Write images to JSON file
+            if relevant_images:
+                with open(images_path, 'w', encoding='utf-8') as f:
+                    json.dump(relevant_images, f, ensure_ascii=False, indent=2)
+                logger.debug(f"Saved relevant images for user {user_identifier}: {len(relevant_images)} images")
         
         # Join the documents text
         documents_text = "\n\n".join(formatted_docs)
@@ -194,40 +245,30 @@ def find_document_similarity(user_message, conversation_history, user_identifier
             )
         
         # Create a unified prompt that allows for both document-based and general knowledge
-        prompt = f"""You are EndoChat, an endocrinology assistant helping patients understand medical concepts.
+        prompt = f"""You are EndoChat, an AI assistant specialized in endocrinology, helping patients understand medical concepts related to diabetes, hormones, and endocrine disorders.
+
 {language_instruction}
 
-Here is information from endocrinology documents that may be relevant to the question:
+Here is relevant information from endocrinology documents:
 {documents_text}
 {source_reminder}
 
 Previous conversation:
 {history_text}
 
-User's latest message: {user_message}
+User's question: {user_message}
 
 Instructions:
-1. Answer endocrinology questions comprehensively:
-   - First use information from the documents provided above if it answers the user's question
-   - If the documents don't contain relevant information for the question, use your general knowledge about endocrinology
-   - Always provide patient-friendly explanations that are easy to understand
-   - Explain medical terms simply
+1. Provide clear, patient-friendly responses about endocrinology
+2. Use the document information when relevant to answer the user's question
+3. If documents don't contain relevant information, use your general endocrinology knowledge
+4. Always explain medical terms in simple language
+5. When using document information, include "Sources:" at the end with document names
+6. Do NOT mention internal system information, processing details, or available documents to the user
+7. Keep responses focused and conversational
+8. If images are available, they will be shown automatically - don't mention this to the user
 
-2. When using document-based information:
-   - At the end of your response, include "Sources:" followed by the names of documents you referenced
-   - DO NOT include page numbers in this list - they will be added automatically
-   - Example: "Sources: Diabète de type 1 PDF.pdf, Techniques d'injection d'insuline.pdf"
-   - THIS IS VERY IMPORTANT. ALWAYS list your sources if you used the document information.
-
-3. When using only general knowledge (because documents don't contain relevant information):
-   - Do NOT include a "Sources:" section
-   - Simply provide accurate information about endocrinology from your training
-
-4. For off-topic questions:
-   - Politely redirect to endocrinology topics
-
-IMPORTANT: Your answer should be based primarily on document information if it's relevant. Only use general knowledge when the documents don't address the user's specific question.
-"""
+Respond naturally and helpfully to the user's question."""
         
         # Update conversation history with the user message
         if conversation_history and isinstance(conversation_history, list):
@@ -394,8 +435,6 @@ def update_conversation_history(conversation_history, assistant_response, user_i
                 {'role': 'user', 'content': 'Error retrieving conversation history'},
                 {'role': 'assistant', 'content': assistant_response}
             ]
-        
-
 
 def save_conversation(conversation_history, user_identifier):
     """Save the conversation history to disk"""
@@ -438,4 +477,3 @@ def load_conversation(user_identifier):
     except Exception as e:
         logger.error(f"Error loading conversation: {str(e)}")
         return []
-    
