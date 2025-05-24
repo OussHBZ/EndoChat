@@ -1,5 +1,5 @@
 // Initialize variables
-console.log("Chat.js loaded with image support");
+console.log("Chat.js loaded with improved image support");
 
 let conversationHistory = [];
 const chatHistory = document.getElementById('chat-history');
@@ -18,9 +18,6 @@ let currentAudio = null;
 let isSpeaking = false;
 let currentSpeakingMessageId = null;
 let currentSpeakingText = '';
-
-// Image variables
-let currentImages = [];
 
 // Initialize Feather icons
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,173 +68,6 @@ async function checkTTSStatus() {
     }
 }
 
-// Fetch images for the current user session
-async function fetchImages() {
-    try {
-        const response = await fetch('/get_images', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_identifier: userIdentifier
-            })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            currentImages = data.images || [];
-            console.log(`Fetched ${currentImages.length} relevant images`);
-            return currentImages;
-        } else {
-            console.warn('No images found for current session');
-            return [];
-        }
-    } catch (error) {
-        console.error('Error fetching images:', error);
-        return [];
-    }
-}
-
-// Display images in the conversation
-function displayImages(messageElement) {
-    if (!currentImages || currentImages.length === 0) {
-        return;
-    }
-    
-    console.log(`Displaying ${currentImages.length} images`);
-    
-    // Create images container
-    const imagesContainer = document.createElement('div');
-    imagesContainer.className = 'images-container mt-4 space-y-3';
-    
-    // Add header
-    const imagesHeader = document.createElement('h4');
-    imagesHeader.className = 'text-sm font-semibold text-gray-700 mb-2';
-    
-    switch (selectedLanguage) {
-        case 'en':
-            imagesHeader.textContent = 'Related Images:';
-            break;
-        case 'fr':
-            imagesHeader.textContent = 'Images associées:';
-            break;
-        case 'ar':
-            imagesHeader.textContent = 'الصور ذات الصلة:';
-            break;
-        default:
-            imagesHeader.textContent = 'Related Images:';
-    }
-    
-    imagesContainer.appendChild(imagesHeader);
-    
-    // Add each image
-    currentImages.forEach((image, index) => {
-        const imageWrapper = document.createElement('div');
-        imageWrapper.className = 'image-wrapper border rounded-lg p-3 bg-gray-50';
-        
-        // Image element
-        const imgElement = document.createElement('img');
-        imgElement.src = image.url;
-        imgElement.alt = `Medical illustration from ${image.source_pdf}`;
-        imgElement.className = 'max-w-full h-auto rounded cursor-pointer hover:shadow-lg transition-shadow';
-        imgElement.loading = 'lazy';
-        
-        // Add click event for modal view
-        imgElement.addEventListener('click', function() {
-            showImageModal(image);
-        });
-        
-        // Image caption
-        const caption = document.createElement('div');
-        caption.className = 'mt-2 text-xs text-gray-600';
-        caption.innerHTML = `
-            <div class="flex items-center justify-between">
-                <span><strong>Source:</strong> ${image.source_pdf}</span>
-                <span><strong>Page:</strong> ${image.page_number}</span>
-            </div>
-            <div class="mt-1">
-                <span><strong>Size:</strong> ${image.width} × ${image.height}px</span>
-            </div>
-        `;
-        
-        imageWrapper.appendChild(imgElement);
-        imageWrapper.appendChild(caption);
-        imagesContainer.appendChild(imageWrapper);
-    });
-    
-    // Add images container to message
-    messageElement.appendChild(imagesContainer);
-    
-    // Clear current images after displaying
-    currentImages = [];
-}
-
-// Show image in modal
-function showImageModal(image) {
-    // Create modal container
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-    modal.id = 'image-modal';
-    
-    // Modal content
-    const modalContent = document.createElement('div');
-    modalContent.className = 'relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden';
-    
-    // Close button
-    const closeButton = document.createElement('button');
-    closeButton.className = 'absolute top-4 right-4 z-10 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75';
-    closeButton.innerHTML = '<i data-feather="x" class="w-5 h-5"></i>';
-    closeButton.onclick = () => document.body.removeChild(modal);
-    
-    // Image
-    const img = document.createElement('img');
-    img.src = image.url;
-    img.alt = `Medical illustration from ${image.source_pdf}`;
-    img.className = 'max-w-full max-h-screen object-contain';
-    
-    // Image info
-    const imageInfo = document.createElement('div');
-    imageInfo.className = 'p-4 bg-gray-50 border-t';
-    imageInfo.innerHTML = `
-        <h3 class="font-semibold text-lg mb-2">Medical Illustration</h3>
-        <div class="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Source:</strong> ${image.source_pdf}</div>
-            <div><strong>Page:</strong> ${image.page_number}</div>
-            <div><strong>Dimensions:</strong> ${image.width} × ${image.height}px</div>
-            <div><strong>Hash:</strong> ${image.hash}</div>
-        </div>
-    `;
-    
-    // Assemble modal
-    modalContent.appendChild(closeButton);
-    modalContent.appendChild(img);
-    modalContent.appendChild(imageInfo);
-    modal.appendChild(modalContent);
-    
-    // Add to body
-    document.body.appendChild(modal);
-    
-    // Initialize feather icons
-    feather.replace();
-    
-    // Close on escape key
-    const handleEscape = (e) => {
-        if (e.key === 'Escape') {
-            document.body.removeChild(modal);
-            document.removeEventListener('keydown', handleEscape);
-        }
-    };
-    document.addEventListener('keydown', handleEscape);
-    
-    // Close on background click
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            document.body.removeChild(modal);
-        }
-    });
-}
-
 // Set up language selection buttons
 function setupLanguageSelection() {
     console.log("Setting up language selection buttons");
@@ -277,6 +107,27 @@ function setupLanguageSelection() {
             }
         });
     });
+}
+
+// Add welcome message based on selected language
+function addWelcomeMessage(language) {
+    let welcomeMessage = '';
+    
+    switch (language) {
+        case 'en':
+            welcomeMessage = "Welcome to EndoChat! I'm here to help you with questions about endocrinology, diabetes, hormones, and related medical topics. How can I assist you today?";
+            break;
+        case 'fr':
+            welcomeMessage = "Bienvenue sur EndoChat ! Je suis là pour vous aider avec vos questions sur l'endocrinologie, le diabète, les hormones et les sujets médicaux connexes. Comment puis-je vous aider aujourd'hui ?";
+            break;
+        case 'ar':
+            welcomeMessage = "مرحبا بك في EndoChat! أنا هنا لمساعدتك في الأسئلة المتعلقة بأمراض الغدد الصماء والسكري والهرمونات والمواضيع الطبية ذات الصلة. كيف يمكنني مساعدتك اليوم؟";
+            break;
+        default:
+            welcomeMessage = "Welcome to EndoChat! I'm here to help you with questions about endocrinology, diabetes, hormones, and related medical topics. How can I assist you today?";
+    }
+    
+    addMessageToChat('bot', welcomeMessage);
 }
 
 // Initialize voice features
@@ -864,11 +715,148 @@ function handleInputKeydown(event) {
     }
 }
 
+// Display images in the conversation (only when received from server)
+function displayImages(messageElement, images) {
+    if (!images || images.length === 0) {
+        return;
+    }
+    
+    console.log(`Displaying ${images.length} relevant images`);
+    
+    // Create images container
+    const imagesContainer = document.createElement('div');
+    imagesContainer.className = 'images-container mt-4 space-y-3';
+    
+    // Add header
+    const imagesHeader = document.createElement('h4');
+    imagesHeader.className = 'text-sm font-semibold text-gray-700 mb-2';
+    
+    switch (selectedLanguage) {
+        case 'en':
+            imagesHeader.textContent = 'Related Images:';
+            break;
+        case 'fr':
+            imagesHeader.textContent = 'Images associées:';
+            break;
+        case 'ar':
+            imagesHeader.textContent = 'الصور ذات الصلة:';
+            break;
+        default:
+            imagesHeader.textContent = 'Related Images:';
+    }
+    
+    imagesContainer.appendChild(imagesHeader);
+    
+    // Add each image
+    images.forEach((image, index) => {
+        const imageWrapper = document.createElement('div');
+        imageWrapper.className = 'image-wrapper border rounded-lg p-3 bg-gray-50';
+        
+        // Image element
+        const imgElement = document.createElement('img');
+        imgElement.src = image.url;
+        imgElement.alt = `Medical illustration from ${image.source_pdf}`;
+        imgElement.className = 'max-w-full h-auto rounded cursor-pointer hover:shadow-lg transition-shadow';
+        imgElement.loading = 'lazy';
+        
+        // Add click event for modal view
+        imgElement.addEventListener('click', function() {
+            showImageModal(image);
+        });
+        
+        // Image caption
+        const caption = document.createElement('div');
+        caption.className = 'mt-2 text-xs text-gray-600';
+        caption.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span><strong>Source:</strong> ${image.source_pdf}</span>
+                <span><strong>Page:</strong> ${image.page_number}</span>
+            </div>
+            <div class="mt-1">
+                <span><strong>Size:</strong> ${image.width} × ${image.height}px</span>
+            </div>
+        `;
+        
+        imageWrapper.appendChild(imgElement);
+        imageWrapper.appendChild(caption);
+        imagesContainer.appendChild(imageWrapper);
+    });
+    
+    // Add images container to message
+    messageElement.appendChild(imagesContainer);
+}
+
+// Show image in modal
+function showImageModal(image) {
+    // Create modal container
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+    modal.id = 'image-modal';
+    
+    // Modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden';
+    
+    // Close button
+    const closeButton = document.createElement('button');
+    closeButton.className = 'absolute top-4 right-4 z-10 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75';
+    closeButton.innerHTML = '<i data-feather="x" class="w-5 h-5"></i>';
+    closeButton.onclick = () => document.body.removeChild(modal);
+    
+    // Image
+    const img = document.createElement('img');
+    img.src = image.url;
+    img.alt = `Medical illustration from ${image.source_pdf}`;
+    img.className = 'max-w-full max-h-screen object-contain';
+    
+    // Image info
+    const imageInfo = document.createElement('div');
+    imageInfo.className = 'p-4 bg-gray-50 border-t';
+    imageInfo.innerHTML = `
+        <h3 class="font-semibold text-lg mb-2">Medical Illustration</h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div><strong>Source:</strong> ${image.source_pdf}</div>
+            <div><strong>Page:</strong> ${image.page_number}</div>
+            <div><strong>Dimensions:</strong> ${image.width} × ${image.height}px</div>
+            <div><strong>Hash:</strong> ${image.hash}</div>
+        </div>
+    `;
+    
+    // Assemble modal
+    modalContent.appendChild(closeButton);
+    modalContent.appendChild(img);
+    modalContent.appendChild(imageInfo);
+    modal.appendChild(modalContent);
+    
+    // Add to body
+    document.body.appendChild(modal);
+    
+    // Initialize feather icons
+    feather.replace();
+    
+    // Close on escape key
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            document.body.removeChild(modal);
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
+    
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
 // Add a message to the chat history
-function addMessageToChat(role, content) {
-    // For bot messages, remove greeting prefixes
+function addMessageToChat(role, content, images = null) {
+    // For bot messages, remove greeting prefixes and clean formatting
     if (role === 'bot') {
         content = removeGreetings(content);
+        content = cleanAndFormatResponse(content);
     }
     
     // Create the message container
@@ -917,11 +905,9 @@ function addMessageToChat(role, content) {
         // Process code blocks with syntax highlighting
         processCodeBlocks(messageText);
         
-        // Fetch and display images for bot messages
-        if (role === 'bot') {
-            fetchImages().then(() => {
-                displayImages(messageText);
-            });
+        // Display images if provided
+        if (images && images.length > 0) {
+            displayImages(messageText, images);
         }
         
         // Add sources (unified approach)
@@ -943,8 +929,296 @@ function addMessageToChat(role, content) {
     forceScrollToBottom();
 }
 
-// Rest of the functions remain the same as in the original chat.js...
-// [Include all other functions like displaySources, processMessageForSources, etc.]
+// Clean and format the response content
+function cleanAndFormatResponse(content) {
+    // Replace ### markers with proper markdown headers
+    content = content.replace(/###\s*/g, '\n## ');
+    
+    // Ensure proper line breaks around headers
+    content = content.replace(/([.!?])\s*##\s*/g, '$1\n\n## ');
+    
+    // Fix bullet points - replace * with proper markdown
+    content = content.replace(/\*\s+([^*\n]+)/g, '\n* $1');
+    
+    // Ensure proper spacing around bullet points
+    content = content.replace(/([.!?])\s*\*\s*/g, '$1\n\n* ');
+    
+    // Fix numbered lists
+    content = content.replace(/(\d+)\.\s+/g, '\n$1. ');
+    
+    // Clean up multiple consecutive newlines
+    content = content.replace(/\n{3,}/g, '\n\n');
+    
+    // Ensure proper paragraph breaks
+    content = content.replace(/([.!?])\s+([A-Z])/g, '$1\n\n$2');
+    
+    // Fix bold text formatting
+    content = content.replace(/\*\*([^*]+)\*\*/g, '**$1**');
+    
+    return content.trim();
+}
+
+// Remove greeting phrases from bot responses
+function removeGreetings(message) {
+    // Common greeting patterns to remove (in multiple languages)
+    const greetingPatterns = [
+        /^(Bonjour\s*!\s*|Hello\s*!\s*|Hi\s*!\s*|مرحبا\s*!\s*)/i,
+        /^(Comment puis-je vous aider aujourd'hui|How can I help you today|كيف يمكنني مساعدتك اليوم)/i,
+        /^(Je vois que vous avez|I see that you have|أرى أن لديك)/i,
+        /^(Pour commencer|To start|للبدء)/i,
+        /^(N'hésitez pas|Don't hesitate|لا تتردد)/i
+    ];
+    
+    let cleanedMessage = message;
+    
+    // Remove greeting patterns
+    greetingPatterns.forEach(pattern => {
+        cleanedMessage = cleanedMessage.replace(pattern, '').trim();
+    });
+    
+    // Remove multiple spaces and empty lines
+    cleanedMessage = cleanedMessage.replace(/\s+/g, ' ').trim();
+    
+    return cleanedMessage;
+}
+
+// Process message content to extract sources
+function processMessageForSources(content) {
+    // Split content at "Sources:" to separate main content from sources
+    const sourcesMarkers = ['Sources:', 'sources:', 'SOURCES:', 'Références:', 'مصادر:'];
+    let mainContent = content;
+    let sourcesSection = null;
+    
+    for (const marker of sourcesMarkers) {
+        if (content.includes(marker)) {
+            const parts = content.split(marker);
+            if (parts.length > 1) {
+                mainContent = parts[0].trim();
+                sourcesSection = parts.slice(1).join(marker).trim();
+                break;
+            }
+        }
+    }
+    
+    return { mainContent, sourcesSection };
+}
+
+// Clean rendered message to remove any remaining system information
+function cleanRenderedMessage(messageElement) {
+    // Remove any remaining system prompts or internal information
+    const systemPatterns = [
+        'Je vois que vous avez à disposition des documents',
+        'I see that you have documents available',
+        'أرى أن لديك وثائق متاحة',
+        'Ces documents décrivent',
+        'These documents describe',
+        'هذه الوثائق تصف',
+        'Il y a des informations sur',
+        'There is information about',
+        'هناك معلومات حول',
+        'Il y a également des schémas',
+        'There are also diagrams',
+        'هناك أيضا مخططات'
+    ];
+    
+    let textContent = messageElement.innerHTML;
+    
+    systemPatterns.forEach(pattern => {
+        const regex = new RegExp(pattern + '[^.]*\\.', 'gi');
+        textContent = textContent.replace(regex, '');
+    });
+    
+    messageElement.innerHTML = textContent;
+}
+
+// Process code blocks with syntax highlighting
+function processCodeBlocks(messageElement) {
+    const codeBlocks = messageElement.querySelectorAll('pre code');
+    codeBlocks.forEach(block => {
+        // Add basic syntax highlighting classes if needed
+        if (!block.className.includes('hljs')) {
+            block.className += ' hljs';
+        }
+    });
+}
+
+// Display sources at the end of bot messages with a collapsible button
+function displaySources(messageText, sourcesSection) {
+    // Check if sourcesSection exists or if the message already contains "Sources:"
+    const messageContent = messageText.textContent || messageText.innerHTML;
+    
+    // Look for sources in the message content
+    let sourcesToDisplay = sourcesSection;
+    if (!sourcesToDisplay && messageContent.includes('Sources:')) {
+        // Extract sources from the message content
+        const sourcesMatch = messageContent.match(/Sources:\s*(.+?)(?:\n|$)/i);
+        if (sourcesMatch) {
+            sourcesToDisplay = sourcesMatch[1];
+        }
+    }
+    
+    if (!sourcesToDisplay) return;
+    
+    // Remove the sources text from the main message content if it exists
+    if (messageContent.includes('Sources:')) {
+        const cleanedContent = messageContent.replace(/\n*Sources:\s*[^\n]*$/i, '');
+        messageText.innerHTML = marked.parse(cleanedContent);
+    }
+    
+    // Parse sources to count them
+    const sourceEntries = sourcesToDisplay.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    
+    if (sourceEntries.length === 0) return;
+    
+    // Create sources container
+    const sourcesContainer = document.createElement('div');
+    sourcesContainer.className = 'sources-container mt-4 pt-3 border-t border-gray-200';
+    
+    // Create sources button
+    const sourcesButton = document.createElement('button');
+    sourcesButton.className = 'sources-button inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors duration-200';
+    
+    const sourceText = sourceEntries.length === 1 ? 'source' : 'sources';
+    sourcesButton.innerHTML = `
+        <i data-feather="file-text" class="mr-2 w-4 h-4"></i>
+        <span>View ${sourceEntries.length} ${sourceText}</span>
+        <i data-feather="chevron-down" class="ml-2 w-4 h-4 transition-transform duration-200" id="sources-chevron"></i>
+    `;
+    
+    // Create sources list (initially hidden)
+    const sourcesList = document.createElement('div');
+    sourcesList.className = 'sources-list mt-3 hidden';
+    sourcesList.id = `sources-list-${Date.now()}`;
+    
+    // Add sources header
+    const sourcesHeader = document.createElement('div');
+    sourcesHeader.className = 'sources-header text-sm font-semibold text-gray-700 mb-2';
+    
+    switch (selectedLanguage) {
+        case 'en':
+            sourcesHeader.textContent = 'References:';
+            break;
+        case 'fr':
+            sourcesHeader.textContent = 'Références:';
+            break;
+        case 'ar':
+            sourcesHeader.textContent = 'المراجع:';
+            break;
+        default:
+            sourcesHeader.textContent = 'References:';
+    }
+    
+    sourcesList.appendChild(sourcesHeader);
+    
+    // Add individual sources with page numbers
+    sourceEntries.forEach(sourceEntry => {
+        const sourceItem = document.createElement('div');
+        sourceItem.className = 'source-item mb-2 p-2 bg-gray-50 rounded border-l-4 border-blue-300';
+        
+        // Extract filename and page number if present
+        let filename = sourceEntry;
+        let pageDisplay = '';
+        
+        // Check if source has page number in format "filename.pdf (page X)"
+        const pageMatch = sourceEntry.match(/^(.+?)\s*\(page\s+(\d+)\)$/i);
+        if (pageMatch) {
+            filename = pageMatch[1].trim();
+            pageDisplay = ` - Page ${pageMatch[2]}`;
+        }
+        
+        const sourceLink = document.createElement('a');
+        sourceLink.href = `/download_pdf?filename=${encodeURIComponent(filename)}`;
+        sourceLink.className = 'source-download-link inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline';
+        sourceLink.target = '_blank';
+        
+        sourceLink.innerHTML = `
+            <i data-feather="download" class="mr-2 text-blue-500 w-4 h-4"></i>
+            ${filename}${pageDisplay}
+        `;
+        
+        sourceItem.appendChild(sourceLink);
+        sourcesList.appendChild(sourceItem);
+    });
+    
+    // Add click event to toggle sources
+    sourcesButton.addEventListener('click', function() {
+        const chevron = this.querySelector('#sources-chevron');
+        
+        if (sourcesList.classList.contains('hidden')) {
+            // Show sources
+            sourcesList.classList.remove('hidden');
+            sourcesList.classList.add('block');
+            chevron.style.transform = 'rotate(180deg)';
+            
+            // Update button text
+            const span = this.querySelector('span');
+            span.textContent = `Hide ${sourceEntries.length} ${sourceText}`;
+        } else {
+            // Hide sources
+            sourcesList.classList.add('hidden');
+            sourcesList.classList.remove('block');
+            chevron.style.transform = 'rotate(0deg)';
+            
+            // Update button text
+            const span = this.querySelector('span');
+            span.textContent = `View ${sourceEntries.length} ${sourceText}`;
+        }
+    });
+    
+    // Assemble sources container
+    sourcesContainer.appendChild(sourcesButton);
+    sourcesContainer.appendChild(sourcesList);
+    
+    // Add sources to message
+    messageText.appendChild(sourcesContainer);
+    
+    // Initialize feather icons
+    feather.replace();
+}
+
+// Show typing indicator
+function showTypingIndicator() {
+    isWaitingForResponse = true;
+    sendButton.disabled = true;
+    
+    const typingContainer = document.createElement('div');
+    typingContainer.className = 'message-container bot typing-container';
+    typingContainer.id = 'typing-indicator';
+    
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.innerHTML = '<i data-feather="cpu"></i>';
+    
+    const typingIndicator = document.createElement('div');
+    typingIndicator.className = 'typing-indicator';
+    typingIndicator.innerHTML = `
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+    `;
+    
+    messageContent.appendChild(avatar);
+    messageContent.appendChild(typingIndicator);
+    typingContainer.appendChild(messageContent);
+    
+    chatHistory.appendChild(typingContainer);
+    feather.replace();
+    forceScrollToBottom();
+}
+
+// Hide typing indicator
+function hideTypingIndicator() {
+    isWaitingForResponse = false;
+    sendButton.disabled = false;
+    
+    const typingIndicator = document.getElementById('typing-indicator');
+    if (typingIndicator) {
+        typingIndicator.remove();
+    }
+}
 
 // Send a message to the server
 function sendMessageToServer(message) {
@@ -961,7 +1235,7 @@ function sendMessageToServer(message) {
             msg: message,
             user_identifier: userIdentifier,
             conversation_history: conversationHistory,
-            language: selectedLanguage // Send the selected language to the server
+            language: selectedLanguage
         })
     })
     .then(response => {
@@ -987,8 +1261,8 @@ function sendMessageToServer(message) {
             console.log("Response does NOT contain sources section");
         }
         
-        // Add the response to the chat
-        addMessageToChat('bot', data.response);
+        // Add the response to the chat with images if provided
+        addMessageToChat('bot', data.response, data.images || null);
         
         // Extra call to ensure scroll - after all content and images might have loaded
         setTimeout(() => forceScrollToBottom(), 1000);
@@ -1019,14 +1293,10 @@ function sendMessageToServer(message) {
     });
 }
 
-// Add placeholder functions for the remaining functionality
-// (These should be the same as in your original chat.js)
-function removeGreetings(message) { /* existing function */ return message; }
-function processMessageForSources(content) { /* existing function */ return {mainContent: content, sourcesSection: null}; }
-function cleanRenderedMessage(messageElement) { /* existing function */ }
-function processCodeBlocks(messageElement) { /* existing function */ }
-function displaySources(messageText, sourcesSection) { /* existing function */ }
-function showTypingIndicator() { /* existing function */ }
-function hideTypingIndicator() { /* existing function */ }
-function addWelcomeMessage(selectedLanguage) { /* existing function */ }
-function forceScrollToBottom() { /* existing function */ }
+// Force scroll to bottom
+function forceScrollToBottom() {
+    const chatContainer = document.getElementById('chat-container');
+    setTimeout(() => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }, 100);
+}

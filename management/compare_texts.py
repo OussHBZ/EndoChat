@@ -3,7 +3,6 @@ import os
 import json
 import re
 import unicodedata
-# from langchain_community.vectorstores import Chroma
 from langchain_chroma import Chroma
 from management.embeddings import get_embedding_function
 
@@ -85,7 +84,7 @@ def generate_conversation_summary(conversation_history):
         return ""
 
 def semantic_search_images(user_message, language='en'):
-    """Perform semantic search on images based on user query"""
+    """Smart image detection based on content topics"""
     try:
         from management.image_extractor import ImageExtractor
         extractor = ImageExtractor()
@@ -95,32 +94,83 @@ def semantic_search_images(user_message, language='en'):
         if not all_images:
             return []
         
-        # Create embeddings for user query
-        embedding_function = get_embedding_function()
-        query_embedding = embedding_function.embed_query(user_message)
-        
-        # Simple keyword matching for now (you can enhance this with actual embeddings)
+        query_lower = user_message.lower()
         relevant_images = []
         
-        # Keywords that might indicate image relevance
-        medical_keywords = [
-            'diagram', 'image', 'picture', 'show', 'illustration', 'figure',
-            'diagramme', 'photo', 'montrer', 'illustration', 'figure',
-            'صورة', 'رسم', 'مخطط', 'أظهر', 'توضيح',
-            'diabetes', 'insulin', 'glucose', 'pancreas', 'hormone',
-            'diabète', 'insuline', 'glucose', 'pancréas', 'hormone',
-            'سكري', 'إنسولين', 'جلوكوز', 'بنكرياس', 'هرمون'
-        ]
+        # Define topic keywords for each of the 3 images
+        image_topics = {
+            # Image 1: Programme de formation en insulinothérapie fonctionnelle en Hospitalier
+            "1 résumé IF_page7_img1_dabc8c47.png": {
+                "keywords": [
+                    # French
+                    "insulinothérapie fonctionnelle", "programme de formation", "formation", "programme", 
+                    "insulinothérapie", "éducation thérapeutique", "apprentissage", "hospitalier",
+                    "enseignement", "formation diabète", "programme diabète",
+                    # English
+                    "functional insulin therapy", "training program", "education program", "therapeutic education",
+                    "insulin therapy training", "diabetes education", "hospital training", "learning program",
+                    # Arabic
+                    "برنامج تدريب", "العلاج بالأنسولين", "التعليم العلاجي", "برنامج تعليمي"
+                ]
+            },
+            
+            # Image 2: Gestion de l'hypoglycémie
+            "PrefinalISPADChapter11FR_page10_img1_fce5948d.png": {
+                "keywords": [
+                    # French
+                    "hypoglycémie", "gestion hypoglycémie", "traitement hypoglycémie", "sucre bas",
+                    "glycémie basse", "correction hypoglycémie", "protocole hypoglycémie",
+                    # English  
+                    "hypoglycemia", "low blood sugar", "hypoglycemia management", "low glucose",
+                    "treating hypoglycemia", "hypoglycemia treatment", "low sugar", "glucose correction",
+                    # Arabic
+                    "نقص السكر", "انخفاض السكر", "علاج نقص السكر", "سكر منخفض"
+                ]
+            },
+            
+            # Image 3: Glycemic Targets
+            "PrefinalISPADChapter8FR_page3_img1_4ffe260e.png": {
+                "keywords": [
+                    # French
+                    "objectifs glycémiques", "cibles glycémiques", "glycémie cible", "hba1c",
+                    "objectifs diabète", "contrôle glycémique", "valeurs cibles", "surveillance glycémique",
+                    # English
+                    "glycemic targets", "blood sugar targets", "glucose targets", "hba1c targets",
+                    "diabetes targets", "glycemic control", "target values", "glucose monitoring",
+                    "blood glucose goals", "sugar levels goals",
+                    # Arabic
+                    "أهداف السكر", "مستويات السكر المستهدفة", "مراقبة السكر", "أهداف الجلوكوز"
+                ]
+            }
+        }
         
-        query_lower = user_message.lower()
-        has_image_keywords = any(keyword in query_lower for keyword in medical_keywords)
+        # Check which images are relevant to the user's message
+        for image_filename, topic_data in image_topics.items():
+            score = 0
+            
+            # Check if any keywords match
+            for keyword in topic_data["keywords"]:
+                if keyword.lower() in query_lower:
+                    score += 1
+            
+            # If we have matches, find the actual image data
+            if score > 0:
+                for image in all_images:
+                    if image["filename"] == image_filename:
+                        relevant_images.append({
+                            'score': score,
+                            'image': image
+                        })
+                        break
         
-        if has_image_keywords:
-            # Return top 2 most relevant images based on PDF source
-            for image in all_images[:2]:
-                relevant_images.append(image)
+        # Sort by relevance score and return
+        relevant_images.sort(key=lambda x: x['score'], reverse=True)
+        final_images = [item['image'] for item in relevant_images]
         
-        return relevant_images
+        if final_images:
+            logger.info(f"Found {len(final_images)} relevant images for topic: {user_message[:50]}...")
+        
+        return final_images
         
     except Exception as e:
         logger.error(f"Error in semantic_search_images: {str(e)}")
@@ -129,7 +179,7 @@ def semantic_search_images(user_message, language='en'):
 def find_document_similarity(user_message, conversation_history, user_identifier=None, language=None):
     """Find similar documents to the user message and generate the prompt"""
     try:
-        # First, generate a summary of the conversation history
+        # Generate conversation summary
         history_text = generate_conversation_summary(conversation_history)
         
         # Get the database instance
@@ -137,50 +187,40 @@ def find_document_similarity(user_message, conversation_history, user_identifier
         if db is None:
             raise Exception("Failed to initialize database connection")
         
-        # Retrieve relevant documents for the user message
+        # Retrieve relevant documents
         docs = db.similarity_search_with_score(user_message, k=5)
         
-        # Format documents for the prompt
+        # Format documents and track sources
         formatted_docs = []
-        
-        # Track actual used source filenames with page numbers
         actual_sources = []
         
         for doc, score in docs:
-            # Log the similarity score for debugging
             logger.debug(f"Document similarity score: {score} for content from {doc.metadata.get('source', 'unknown')}")
             
-            # Include documents with a more permissive threshold
-            if score < 1.5:  # Higher threshold to include more documents
+            if score < 1.5:  # Include relevant documents
                 formatted_docs.append(doc.page_content)
                 
-                # Get the source filename
+                # Track sources WITH page numbers
                 source_path = doc.metadata.get('source', '')
-                
-                # Get the page as the page number (using page_label)
                 page_num = None
                 if 'page_label' in doc.metadata:
                     page_label = doc.metadata['page_label']
-                    # Try to convert to int if it's a digit string
                     if isinstance(page_label, str) and page_label.isdigit():
                         page_num = int(page_label)
                     else:
                         page_num = page_label
                 elif 'page' in doc.metadata:
-                    # Fallback to 'page' if 'page_label' is not available
                     page_num = doc.metadata['page']
                 
-                # Add to sources if from a PDF file
                 if source_path:
                     source_filename = os.path.basename(source_path)
                     if source_filename.lower().endswith('.pdf'):
-                        # Store the source with its page number
                         source_info = {
                             "filename": source_filename,
                             "page": page_num
                         }
                         
-                        # Check if this source+page combination already exists
+                        # Avoid duplicates
                         existing = False
                         for s in actual_sources:
                             if s['filename'] == source_filename and s['page'] == page_num:
@@ -190,68 +230,74 @@ def find_document_similarity(user_message, conversation_history, user_identifier
                         if not existing and page_num is not None:
                             actual_sources.append(source_info)
         
-        # Perform semantic search for relevant images
+        # Perform smart image detection based on content topics
         relevant_images = semantic_search_images(user_message, language)
         
-        # Save the source filenames with page numbers and images for this user
+        # Save sources and images for this user
         if user_identifier:
-            # Create a safe filename from the user identifier
             filename = ''.join(c for c in user_identifier if c.isalnum())
             sources_path = os.path.join(CONVERSATION_PATH, f"{filename}_sources.json")
             images_path = os.path.join(CONVERSATION_PATH, f"{filename}_images.json")
             
-            # Ensure the conversation directory exists
             if not os.path.exists(CONVERSATION_PATH):
                 os.makedirs(CONVERSATION_PATH)
             
-            # Write sources to JSON file
+            # Save sources
             if actual_sources:
                 with open(sources_path, 'w', encoding='utf-8') as f:
                     json.dump(actual_sources, f, ensure_ascii=False, indent=2)
-                logger.debug(f"Saved actual sources for user {user_identifier}: {actual_sources}")
+                logger.debug(f"Saved sources for user {user_identifier}: {actual_sources}")
             
-            # Write images to JSON file
+            # Save images (only if there are any)
             if relevant_images:
                 with open(images_path, 'w', encoding='utf-8') as f:
                     json.dump(relevant_images, f, ensure_ascii=False, indent=2)
                 logger.debug(f"Saved relevant images for user {user_identifier}: {len(relevant_images)} images")
+            else:
+                # Remove images file if no images are relevant
+                if os.path.exists(images_path):
+                    os.remove(images_path)
         
-        # Join the documents text
+        # Join documents text
         documents_text = "\n\n".join(formatted_docs)
         
-        # Determine the language-specific instructions
+        # Language instruction
         language_instruction = ""
         if language:
             if language == 'en':
-                language_instruction = "Respond in English."
+                language_instruction = "Respond in English. Structure your response with clear headings and bullet points where appropriate."
             elif language == 'fr':
-                language_instruction = "Respond in French (Répondre en français)."
+                language_instruction = "Répondez en français. Structurez votre réponse avec des titres clairs et des puces si approprié."
             elif language == 'ar':
-                language_instruction = "Respond in Arabic (الرد باللغة العربية)."
+                language_instruction = "الرد باللغة العربية. قم بتنظيم إجابتك بعناوين واضحة ونقاط منظمة عند الحاجة."
             else:
-                language_instruction = "Respond in the same language as the user."
+                language_instruction = "Respond in the same language as the user. Structure your response clearly with headings and bullet points where appropriate."
         else:
-            language_instruction = "Respond in the same language as the user."
-            
-        # Add source information directly to the prompt
-        source_reminder = ""
+            language_instruction = "Respond in the same language as the user. Structure your response clearly with headings and bullet points where appropriate."
+        
+        # Add source information to prompt if sources exist
+        source_instruction = ""
         if actual_sources:
-            source_files = [s["filename"] for s in actual_sources]
-            unique_source_files = list(set(source_files))
-            source_reminder = (
-                f"\nThe documents provided above are from these sources: {', '.join(unique_source_files)}.\n"
-                "Remember to include these sources at the end of your response by adding a line that starts with 'Sources:' "
-                "followed by the names of the documents you referenced.\n"
+            # Create detailed source list with page numbers for the prompt
+            source_details = []
+            for source in actual_sources:
+                if source.get('page'):
+                    source_details.append(f"{source['filename']} (page {source['page']})")
+                else:
+                    source_details.append(source['filename'])
+            
+            source_instruction = (
+                f"\nWhen referencing information from the provided documents, "
+                f"add 'Sources: {', '.join(source_details)}' at the end of your response."
             )
         
-        # Create a unified prompt that allows for both document-based and general knowledge
-        prompt = f"""You are EndoChat, an AI assistant specialized in endocrinology, helping patients understand medical concepts related to diabetes, hormones, and endocrine disorders.
+        # IMPROVED PROMPT TEMPLATE - Well-structured responses
+        prompt = f"""You are EndoChat, an AI assistant specialized in endocrinology. Provide clear, accurate, and well-structured responses about diabetes, hormones, and endocrine disorders.
 
 {language_instruction}
 
-Here is relevant information from endocrinology documents:
-{documents_text}
-{source_reminder}
+Relevant medical documents:
+{documents_text if documents_text else "No specific documents found for this query."}
 
 Previous conversation:
 {history_text}
@@ -259,21 +305,26 @@ Previous conversation:
 User's question: {user_message}
 
 Instructions:
-1. Provide clear, patient-friendly responses about endocrinology
-2. Use the document information when relevant to answer the user's question
-3. If documents don't contain relevant information, use your general endocrinology knowledge
-4. Always explain medical terms in simple language
-5. When using document information, include "Sources:" at the end with document names
-6. Do NOT mention internal system information, processing details, or available documents to the user
-7. Keep responses focused and conversational
-8. If images are available, they will be shown automatically - don't mention this to the user
+1. Provide a well-structured, comprehensive answer to the user's question
+2. Use clear headings (##) to organize different sections of your response
+3. Use bullet points or numbered lists for clarity when listing information
+4. Use simple, patient-friendly language while being medically accurate
+5. Keep responses professional and informative
+6. Do not mention system processes, document availability, or internal operations
+7. Focus on providing practical, actionable medical information{source_instruction}
 
-Respond naturally and helpfully to the user's question."""
+Structure your response with appropriate sections such as:
+- Overview/Definition (if explaining a concept)
+- Key Points or Symptoms
+- Management/Treatment options
+- Important Considerations
+- When to seek medical help (if relevant)
+
+Response:"""
         
-        # Update conversation history with the user message
+        # Update conversation history
         if conversation_history and isinstance(conversation_history, list):
             if len(conversation_history) > 0 and not isinstance(conversation_history[0], dict):
-                # Convert old format history if needed
                 new_history = []
                 for i, msg in enumerate(conversation_history):
                     new_history.append({
@@ -282,7 +333,6 @@ Respond naturally and helpfully to the user's question."""
                     })
                 conversation_history = new_history
             elif len(conversation_history) > 0 and 'role' not in conversation_history[0]:
-                # Another possible old format
                 new_history = []
                 for i, msg in enumerate(conversation_history):
                     new_history.append({
@@ -291,7 +341,6 @@ Respond naturally and helpfully to the user's question."""
                     })
                 conversation_history = new_history
         else:
-            # Initialize if empty or not a list
             conversation_history = []
         
         updated_history = conversation_history + [{
@@ -299,7 +348,7 @@ Respond naturally and helpfully to the user's question."""
             'content': user_message
         }]
         
-        # Save conversation history if user_identifier is provided
+        # Save conversation history
         if user_identifier:
             save_conversation(updated_history, user_identifier)
         
@@ -307,7 +356,7 @@ Respond naturally and helpfully to the user's question."""
         
     except Exception as e:
         logger.error(f"Error in find_document_similarity: {str(e)}")
-        # Provide a fallback prompt if something goes wrong
+        # Fallback prompt
         updated_history = []
         if isinstance(conversation_history, list):
             updated_history = conversation_history + [{
@@ -320,29 +369,26 @@ Respond naturally and helpfully to the user's question."""
                 'content': user_message
             }]
         
-        # Determine language for fallback message
         lang_prefix = ""
         if language:
             if language == 'en':
-                lang_prefix = "Always respond in English."
+                lang_prefix = "Respond in English with clear structure."
             elif language == 'fr':
-                lang_prefix = "Toujours répondre en français."
+                lang_prefix = "Répondez en français avec une structure claire."
             elif language == 'ar':
-                lang_prefix = "دائما الرد باللغة العربية."
+                lang_prefix = "الرد باللغة العربية مع تنظيم واضح."
         
-        fallback_prompt = f"""You are an AI assistant specialized in endocrinology, helping patients.
+        fallback_prompt = f"""You are EndoChat, an AI assistant specialized in endocrinology.
 {lang_prefix}
 
-The document retrieval system encountered an error, but I'll try to help with your question.
 User's question: {user_message}
 
-Please provide a response based on general knowledge about endocrinology.
-If you cannot answer, kindly explain that there was an issue retrieving specific documents.
+Please provide a helpful, well-structured response about endocrinology based on your knowledge.
 """
         return fallback_prompt, updated_history
 
 def update_conversation_history(conversation_history, assistant_response, user_identifier=None):
-    """Update conversation history with the assistant's response and add sources"""
+    """Update conversation history with the assistant's response and ensure sources are properly formatted"""
     try:
         # Check if the response already has a Sources section
         has_sources_section = any([
@@ -356,18 +402,16 @@ def update_conversation_history(conversation_history, assistant_response, user_i
         
         logger.debug(f"Response already has sources section: {has_sources_section}")
         
-        # Only add sources if they exist and the response doesn't already have them
+        # Get sources for this user
         sources_text = ""
         sources_found = False
         
         if user_identifier:
-            # Create a safe filename from the user identifier
             filename = ''.join(c for c in user_identifier if c.isalnum())
             sources_path = os.path.join(CONVERSATION_PATH, f"{filename}_sources.json")
             
             if os.path.exists(sources_path):
                 try:
-                    # Read the sources with page numbers
                     with open(sources_path, 'r', encoding='utf-8') as f:
                         sources = json.load(f)
                     
@@ -375,33 +419,34 @@ def update_conversation_history(conversation_history, assistant_response, user_i
                         sources_found = True
                         logger.debug(f"Found {len(sources)} sources for user {user_identifier}")
                         
-                        # Create sources text
-                        source_filenames = [source["filename"] for source in sources]
-                        # Remove duplicates
-                        unique_source_filenames = list(set(source_filenames))
-                        sources_text = "\n\nSources: " + ", ".join(unique_source_filenames)
+                        # Create sources text with page numbers
+                        source_details = []
+                        for source in sources:
+                            if source.get('page'):
+                                source_details.append(f"{source['filename']} (page {source['page']})")
+                            else:
+                                source_details.append(source['filename'])
+                        
+                        sources_text = "\n\nSources: " + ", ".join(source_details)
                 except Exception as src_err:
                     logger.error(f"Error reading sources file: {str(src_err)}")
-            else:
-                logger.debug(f"No sources file found at {sources_path}")
         
-        # Add sources to the response
+        # Ensure sources are properly formatted in the response
         full_response = assistant_response
         
         if sources_found and not has_sources_section:
-            logger.debug("Adding sources to response")
+            logger.debug("Adding sources with page numbers to response")
             full_response = assistant_response + sources_text
         elif sources_found and has_sources_section:
-            # Check if the existing sources section is empty or minimal
+            # Check if the existing sources section has page numbers
             sources_parts = re.split(r'(Sources:|sources:|SOURCES:|Références:|مصادر:)', assistant_response, flags=re.IGNORECASE)
             if len(sources_parts) > 1:
-                # Get the part after the sources marker
                 sources_content = sources_parts[-1].strip()
-                if len(sources_content) < 5:
-                    # Replace the empty sources section
+                # If sources section doesn't contain page numbers, replace it
+                if "page" not in sources_content and len(sources_content) < 50:
                     prefix = assistant_response.split(sources_parts[-2])[0]
-                    full_response = prefix + sources_parts[-2] + sources_text.replace("\n\nSources:", "")
-                    logger.debug("Replacing empty sources section")
+                    full_response = prefix + sources_parts[-2] + " " + sources_text.replace("\n\nSources:", "")
+                    logger.debug("Replacing sources section with page numbers")
         
         # Add the assistant's response to history
         updated_history = []
@@ -416,7 +461,7 @@ def update_conversation_history(conversation_history, assistant_response, user_i
                 'content': full_response
             }]
         
-        # Save conversation history if user_identifier is provided
+        # Save conversation history
         if user_identifier:
             save_conversation(updated_history, user_identifier)
         

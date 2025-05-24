@@ -113,10 +113,15 @@ class ConversationManager:
             current_time = time.time()
             max_age = MAX_CONVERSATION_AGE_DAYS * 24 * 60 * 60  # Convert days to seconds
             
-            # Check each conversation file
+            # Check each file in the conversations directory
             count = 0
             for filename in os.listdir(CONVERSATION_PATH):
+                # Skip non-JSON files
                 if not filename.endswith('.json'):
+                    continue
+                
+                # Skip sources and images files - only process main conversation files
+                if filename.endswith('_sources.json') or filename.endswith('_images.json'):
                     continue
                 
                 file_path = os.path.join(CONVERSATION_PATH, filename)
@@ -126,22 +131,87 @@ class ConversationManager:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         conversation_data = json.load(f)
                     
+                    # Handle different file formats
+                    last_updated = None
+                    
+                    if isinstance(conversation_data, dict):
+                        # New format with metadata
+                        last_updated = conversation_data.get('last_updated', 0)
+                    elif isinstance(conversation_data, list):
+                        # Old format - use file modification time
+                        last_updated = os.path.getmtime(file_path)
+                    else:
+                        # Unknown format - use file modification time
+                        logger.warning(f"Unknown conversation format in {filename}, using file modification time")
+                        last_updated = os.path.getmtime(file_path)
+                    
                     # Check if the conversation is too old
-                    last_updated = conversation_data.get('last_updated', 0)
-                    if current_time - last_updated > max_age:
-                        # Delete the file
+                    if last_updated and current_time - last_updated > max_age:
+                        # Delete the main conversation file
                         os.remove(file_path)
                         count += 1
                         logger.debug(f"Deleted old conversation: {filename}")
+                        
+                        # Also delete associated files (sources and images)
+                        base_filename = filename.replace('.json', '')
+                        
+                        # Delete sources file if it exists
+                        sources_file = os.path.join(CONVERSATION_PATH, f"{base_filename}_sources.json")
+                        if os.path.exists(sources_file):
+                            os.remove(sources_file)
+                            logger.debug(f"Deleted associated sources file: {base_filename}_sources.json")
+                        
+                        # Delete images file if it exists
+                        images_file = os.path.join(CONVERSATION_PATH, f"{base_filename}_images.json")
+                        if os.path.exists(images_file):
+                            os.remove(images_file)
+                            logger.debug(f"Deleted associated images file: {base_filename}_images.json")
                 
                 except Exception as e:
                     logger.error(f"Error processing conversation file {filename}: {str(e)}")
+                    continue
             
             logger.info(f"Cleanup completed. Deleted {count} old conversations.")
             return count
             
         except Exception as e:
             logger.error(f"Error in cleanup_old_conversations: {str(e)}")
+            return 0
+    
+    def cleanup_orphaned_files(self):
+        """Clean up orphaned sources and images files that don't have corresponding conversation files"""
+        try:
+            # Get list of main conversation files
+            main_conversations = set()
+            for filename in os.listdir(CONVERSATION_PATH):
+                if filename.endswith('.json') and not filename.endswith('_sources.json') and not filename.endswith('_images.json'):
+                    base_name = filename.replace('.json', '')
+                    main_conversations.add(base_name)
+            
+            # Check for orphaned files
+            orphaned_count = 0
+            for filename in os.listdir(CONVERSATION_PATH):
+                if filename.endswith('_sources.json') or filename.endswith('_images.json'):
+                    # Extract base name
+                    if filename.endswith('_sources.json'):
+                        base_name = filename.replace('_sources.json', '')
+                    else:  # _images.json
+                        base_name = filename.replace('_images.json', '')
+                    
+                    # If no corresponding main conversation file exists, delete this file
+                    if base_name not in main_conversations:
+                        file_path = os.path.join(CONVERSATION_PATH, filename)
+                        os.remove(file_path)
+                        orphaned_count += 1
+                        logger.debug(f"Deleted orphaned file: {filename}")
+            
+            if orphaned_count > 0:
+                logger.info(f"Cleaned up {orphaned_count} orphaned files")
+            
+            return orphaned_count
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup_orphaned_files: {str(e)}")
             return 0
     
     def _get_safe_filename(self, user_identifier):

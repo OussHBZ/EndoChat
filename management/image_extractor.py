@@ -62,7 +62,7 @@ class ImageExtractor:
             doc = fitz.open(pdf_path)
             filename = os.path.basename(pdf_path)
             extracted_images = []
-            image_hashes = set()  # Track duplicates
+            image_hashes = set()
             
             for page_num in range(len(doc)):
                 page = doc.load_page(page_num)
@@ -72,21 +72,17 @@ class ImageExtractor:
                 
                 for img_index, img in enumerate(image_list):
                     try:
-                        # Get image data
                         xref = img[0]
                         pix = fitz.Pixmap(doc, xref)
                         
-                        # Skip if image is too small (likely artifacts)
                         if pix.width < 50 or pix.height < 50:
                             pix = None
                             continue
                         
-                        # Convert to PIL Image for processing
-                        if pix.n - pix.alpha < 4:  # GRAY or RGB
+                        if pix.n - pix.alpha < 4:
                             img_data = pix.tobytes("png")
                             img_hash = self.generate_image_hash(img_data)
                             
-                            # Skip duplicates
                             if img_hash in image_hashes:
                                 pix = None
                                 continue
@@ -101,7 +97,7 @@ class ImageExtractor:
                             with open(img_path, "wb") as img_file:
                                 img_file.write(img_data)
                             
-                            # Store metadata
+                            # Store metadata with description field
                             image_info = {
                                 "filename": img_filename,
                                 "source_pdf": filename,
@@ -110,7 +106,8 @@ class ImageExtractor:
                                 "width": pix.width,
                                 "height": pix.height,
                                 "hash": img_hash,
-                                "file_path": img_path
+                                "file_path": img_path,
+                                "description": ""  # Empty description by default - to be filled manually
                             }
                             
                             extracted_images.append(image_info)
@@ -227,7 +224,46 @@ class ImageExtractor:
                 
         except Exception as e:
             logger.error(f"Error cleaning up orphaned images: {str(e)}")
-
+    def add_image_description(self, image_filename, description):
+        """Add a description to an extracted image for better semantic search"""
+        try:
+            # Find the image in processed files
+            for pdf_name, pdf_data in self.processed_files.items():
+                images = pdf_data.get('images', [])
+                for image in images:
+                    if image['filename'] == image_filename:
+                        image['description'] = description
+                        logger.info(f"Added description to image {image_filename}: {description}")
+                        self.save_processed_files()
+                        return True
+            
+            logger.warning(f"Image {image_filename} not found for description update")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error adding description to image: {str(e)}")
+            return False
+    
+    def update_image_descriptions(self, descriptions_dict):
+        """Update multiple image descriptions at once
+        
+        Args:
+            descriptions_dict: Dictionary with image filenames as keys and descriptions as values
+        """
+        try:
+            updated_count = 0
+            
+            for image_filename, description in descriptions_dict.items():
+                if self.add_image_description(image_filename, description):
+                    updated_count += 1
+            
+            logger.info(f"Updated descriptions for {updated_count} images")
+            return updated_count
+            
+        except Exception as e:
+            logger.error(f"Error updating image descriptions: {str(e)}")
+            return 0
+    
 def extract_images_from_documents():
     """Main function to extract images from all PDF documents"""
     logger.info("Starting image extraction from documents")

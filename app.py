@@ -65,14 +65,23 @@ def create_app():
     def cleanup_worker():
         while app.config['cleanup_thread_running']:
             try:
+                # Clean up old conversations
                 conversation_manager.cleanup_old_conversations()
-                # Also cleanup orphaned images
+                
+                # Clean up orphaned files (sources/images without main conversation)
+                conversation_manager.cleanup_orphaned_files()
+                
+                # Also cleanup orphaned images from the image extractor
                 image_extractor.cleanup_orphaned_images()
+                
                 logger.info("Cleanup completed, sleeping for 1 hour...")
+                
+                # Sleep for 1 hour, but check every minute if we should stop
                 for _ in range(60):
                     if not app.config['cleanup_thread_running']:
                         break
                     time.sleep(60)
+                    
             except Exception as e:
                 logger.error(f"Error in cleanup worker: {str(e)}")
                 time.sleep(60)
@@ -100,7 +109,7 @@ def create_app():
     
     @app.route('/chat', methods=['POST'])
     def chat():
-        request_id = str(uuid.uuid4())  # Generate unique request ID
+        request_id = str(uuid.uuid4())
         logger.info(f"Received chat request. ID: {request_id}")
         
         try:
@@ -108,7 +117,7 @@ def create_app():
             user_message = data['msg']
             user_identifier = data.get('user_identifier')
             conversation_history = data.get('conversation_history', [])
-            language = data.get('language', None)  # Get the selected language
+            language = data.get('language', None)
             
             logger.debug(f"Request {request_id} - Processing message: {user_message[:50]}... in language: {language}")
             
@@ -117,11 +126,31 @@ def create_app():
                 user_message, 
                 conversation_history,
                 user_identifier,
-                language  # Pass language to find_document_similarity
+                language
             )
             
             # Step 2: Call the LLM with the prompt
             response = client.invoke(full_prompt).content
+            
+            # Step 3: Get relevant images for this response
+            relevant_images = []
+            if user_identifier:
+                filename = ''.join(c for c in user_identifier if c.isalnum())
+                images_path = os.path.join(CONVERSATION_PATH, f"{filename}_images.json")
+                
+                if os.path.exists(images_path):
+                    try:
+                        with open(images_path, 'r', encoding='utf-8') as f:
+                            image_data = json.load(f)
+                        
+                        # Add full URL paths for frontend
+                        for image in image_data:
+                            image['url'] = f"/static/extracted_images/{image['filename']}"
+                        
+                        relevant_images = image_data
+                        logger.debug(f"Found {len(relevant_images)} relevant images for response")
+                    except Exception as e:
+                        logger.error(f"Error loading images: {str(e)}")
             
             # Update conversation history with the new interaction
             final_history = update_conversation_history(
@@ -133,7 +162,8 @@ def create_app():
             logger.info(f"Request {request_id} - Successfully processed chat request")
             return jsonify({
                 'response': response, 
-                'conversation_history': final_history
+                'conversation_history': final_history,
+                'images': relevant_images  # Add images to response
             })
             
         except Exception as e:
