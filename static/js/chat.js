@@ -853,7 +853,7 @@ function showImageModal(image) {
 
 // Add a message to the chat history
 function addMessageToChat(role, content, images = null) {
-    // For bot messages, remove greeting prefixes and clean formatting
+    // For bot messages, clean but keep very simple
     if (role === 'bot') {
         content = removeGreetings(content);
         content = cleanAndFormatResponse(content);
@@ -863,99 +863,115 @@ function addMessageToChat(role, content, images = null) {
     const messageContainer = document.createElement('div');
     messageContainer.className = `message-container ${role}`;
     
-    // For Arabic, add RTL direction if needed
+    // Set direction for Arabic
     if (selectedLanguage === 'ar') {
         messageContainer.style.direction = 'rtl';
     } else {
         messageContainer.style.direction = 'ltr';
     }
     
-    // Create the message content container
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
     
-    // Create the avatar
     const avatar = document.createElement('div');
     avatar.className = 'avatar';
     
-    // Set the avatar icon based on the role
     const avatarIcon = document.createElement('i');
     avatarIcon.setAttribute('data-feather', role === 'user' ? 'user' : 'cpu');
     avatar.appendChild(avatarIcon);
     
-    // Create the message text
     const messageText = document.createElement('div');
     messageText.className = 'message-text';
     
-    // Format the message content based on role
     if (role === 'user') {
         messageText.textContent = content;
     } else {
-        messageText.className += ' prose max-w-none';
+        messageText.className += ' prose max-w-none simple-response'; // Add simple-response class
         
         // Process message to extract sources
         const { mainContent, sourcesSection } = processMessageForSources(content);
         
-        // Convert markdown to HTML for the main content
-        messageText.innerHTML = marked.parse(mainContent);
-        
-        // Apply post-rendering clean-up to remove any remaining intro phrases
-        cleanRenderedMessage(messageText);
-        
-        // Process code blocks with syntax highlighting
-        processCodeBlocks(messageText);
+        // For patient responses, use simple text formatting instead of markdown
+        messageText.innerHTML = formatSimpleResponse(mainContent);
         
         // Display images if provided
         if (images && images.length > 0) {
             displayImages(messageText, images);
         }
         
-        // Add sources (unified approach)
+        // Add sources - this is crucial for showing sources
         displaySources(messageText, sourcesSection);
     }
     
-    // Assemble the message
     messageContent.appendChild(avatar);
     messageContent.appendChild(messageText);
     messageContainer.appendChild(messageContent);
     
-    // Add the message to the chat history
     chatHistory.appendChild(messageContainer);
-    
-    // Initialize feather icons for the new message
     feather.replace();
-    
-    // Force scroll to bottom
     forceScrollToBottom();
+}
+
+function formatSimpleResponse(content) {
+    // Keep it very simple - just wrap in paragraphs
+    const paragraphs = content.split('\n\n').filter(p => p.trim().length > 0);
+    
+    if (paragraphs.length === 1) {
+        // Single paragraph - just return as text
+        return `<p>${paragraphs[0].trim()}</p>`;
+    } else {
+        // Multiple paragraphs
+        return paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+    }
+}
+
+function processPatientFriendlyFormatting(messageElement) {
+    // Remove any large headers that might have been created
+    const headers = messageElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    headers.forEach(header => {
+        // Convert headers to simple bold text
+        const boldText = document.createElement('strong');
+        boldText.textContent = header.textContent;
+        header.parentNode.replaceChild(boldText, header);
+    });
+    
+    // Style lists to be more gentle
+    const lists = messageElement.querySelectorAll('ul, ol');
+    lists.forEach(list => {
+        list.style.marginTop = '0.5rem';
+        list.style.marginBottom = '0.5rem';
+        list.style.paddingLeft = '1rem';
+    });
+    
+    // Make paragraphs more readable with better spacing
+    const paragraphs = messageElement.querySelectorAll('p');
+    paragraphs.forEach(p => {
+        p.style.marginBottom = '0.75rem';
+        p.style.lineHeight = '1.6';
+    });
 }
 
 // Clean and format the response content
 function cleanAndFormatResponse(content) {
-    // Replace ### markers with proper markdown headers
-    content = content.replace(/###\s*/g, '\n## ');
+    // Remove any headers completely
+    content = content.replace(/#{1,6}\s+/g, '');
     
-    // Ensure proper line breaks around headers
-    content = content.replace(/([.!?])\s*##\s*/g, '$1\n\n## ');
+    // Remove asterisks and bullet formatting - keep plain text
+    content = content.replace(/\*\s+/g, '');
+    content = content.replace(/\*\*([^*]+)\*\*/g, '$1'); // Remove bold formatting
+    content = content.replace(/\*([^*]+)\*/g, '$1'); // Remove italic formatting
     
-    // Fix bullet points - replace * with proper markdown
-    content = content.replace(/\*\s+([^*\n]+)/g, '\n* $1');
+    // Remove numbered lists formatting
+    content = content.replace(/\d+\.\s+/g, '');
     
-    // Ensure proper spacing around bullet points
-    content = content.replace(/([.!?])\s*\*\s*/g, '$1\n\n* ');
-    
-    // Fix numbered lists
-    content = content.replace(/(\d+)\.\s+/g, '\n$1. ');
-    
-    // Clean up multiple consecutive newlines
+    // Clean up extra line breaks but keep paragraph structure
     content = content.replace(/\n{3,}/g, '\n\n');
+    content = content.replace(/\n\n/g, ' '); // Convert to single paragraphs
     
-    // Ensure proper paragraph breaks
-    content = content.replace(/([.!?])\s+([A-Z])/g, '$1\n\n$2');
+    // Clean up any remaining formatting
+    content = content.trim();
     
-    // Fix bold text formatting
-    content = content.replace(/\*\*([^*]+)\*\*/g, '**$1**');
-    
-    return content.trim();
+    return content;
 }
 
 // Remove greeting phrases from bot responses
@@ -984,20 +1000,30 @@ function removeGreetings(message) {
 
 // Process message content to extract sources
 function processMessageForSources(content) {
-    // Split content at "Sources:" to separate main content from sources
-    const sourcesMarkers = ['Sources:', 'sources:', 'SOURCES:', 'Références:', 'مصادر:'];
+    // Split content at various "Sources:" markers
+    const sourcesMarkers = [
+        'Sources:', 'sources:', 'SOURCES:', 'Sources :', 
+        'Références:', 'références:', 'RÉFÉRENCES:',
+        'مصادر:', 'المصادر:'
+    ];
+    
     let mainContent = content;
     let sourcesSection = null;
     
+    // Try each marker
     for (const marker of sourcesMarkers) {
-        if (content.includes(marker)) {
-            const parts = content.split(marker);
-            if (parts.length > 1) {
-                mainContent = parts[0].trim();
-                sourcesSection = parts.slice(1).join(marker).trim();
-                break;
-            }
+        const markerIndex = content.indexOf(marker);
+        if (markerIndex !== -1) {
+            mainContent = content.substring(0, markerIndex).trim();
+            sourcesSection = content.substring(markerIndex + marker.length).trim();
+            console.log('Found sources section:', sourcesSection); // Debug log
+            break;
         }
+    }
+    
+    // If no sources found in text, try to get from server
+    if (!sourcesSection) {
+        console.log('No sources found in message content'); // Debug log
     }
     
     return { mainContent, sourcesSection };
@@ -1044,31 +1070,41 @@ function processCodeBlocks(messageElement) {
 
 // Display sources at the end of bot messages with a collapsible button
 function displaySources(messageText, sourcesSection) {
-    // Check if sourcesSection exists or if the message already contains "Sources:"
+    console.log('displaySources called with:', sourcesSection); // Debug log
+    
+    // Check if sourcesSection exists or if the message content contains sources
     const messageContent = messageText.textContent || messageText.innerHTML;
     
-    // Look for sources in the message content
+    // Look for sources in the message content if sourcesSection is empty
     let sourcesToDisplay = sourcesSection;
     if (!sourcesToDisplay && messageContent.includes('Sources:')) {
-        // Extract sources from the message content
         const sourcesMatch = messageContent.match(/Sources:\s*(.+?)(?:\n|$)/i);
         if (sourcesMatch) {
             sourcesToDisplay = sourcesMatch[1];
+            console.log('Extracted sources from content:', sourcesToDisplay); // Debug log
         }
     }
     
-    if (!sourcesToDisplay) return;
+    if (!sourcesToDisplay || sourcesToDisplay.trim().length === 0) {
+        console.log('No sources to display'); // Debug log
+        return;
+    }
     
     // Remove the sources text from the main message content if it exists
     if (messageContent.includes('Sources:')) {
         const cleanedContent = messageContent.replace(/\n*Sources:\s*[^\n]*$/i, '');
-        messageText.innerHTML = marked.parse(cleanedContent);
+        messageText.innerHTML = formatSimpleResponse(cleanedContent);
     }
     
     // Parse sources to count them
     const sourceEntries = sourcesToDisplay.split(',').map(s => s.trim()).filter(s => s.length > 0);
     
-    if (sourceEntries.length === 0) return;
+    if (sourceEntries.length === 0) {
+        console.log('No valid source entries found'); // Debug log
+        return;
+    }
+    
+    console.log('Creating sources display for:', sourceEntries); // Debug log
     
     // Create sources container
     const sourcesContainer = document.createElement('div');
@@ -1079,10 +1115,20 @@ function displaySources(messageText, sourcesSection) {
     sourcesButton.className = 'sources-button inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors duration-200';
     
     const sourceText = sourceEntries.length === 1 ? 'source' : 'sources';
+    let buttonText = `View ${sourceEntries.length} ${sourceText}`;
+    
+    // Translate button text based on language
+    if (selectedLanguage === 'fr') {
+        const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
+        buttonText = `Voir ${sourceEntries.length} ${sourceTxt}`;
+    } else if (selectedLanguage === 'ar') {
+        buttonText = `عرض ${sourceEntries.length} مصدر`;
+    }
+    
     sourcesButton.innerHTML = `
         <i data-feather="file-text" class="mr-2 w-4 h-4"></i>
-        <span>View ${sourceEntries.length} ${sourceText}</span>
-        <i data-feather="chevron-down" class="ml-2 w-4 h-4 transition-transform duration-200" id="sources-chevron"></i>
+        <span>${buttonText}</span>
+        <i data-feather="chevron-down" class="ml-2 w-4 h-4 transition-transform duration-200" id="sources-chevron-${Date.now()}"></i>
     `;
     
     // Create sources list (initially hidden)
@@ -1142,7 +1188,7 @@ function displaySources(messageText, sourcesSection) {
     
     // Add click event to toggle sources
     sourcesButton.addEventListener('click', function() {
-        const chevron = this.querySelector('#sources-chevron');
+        const chevron = this.querySelector('[data-feather="chevron-down"]');
         
         if (sourcesList.classList.contains('hidden')) {
             // Show sources
@@ -1152,7 +1198,14 @@ function displaySources(messageText, sourcesSection) {
             
             // Update button text
             const span = this.querySelector('span');
-            span.textContent = `Hide ${sourceEntries.length} ${sourceText}`;
+            if (selectedLanguage === 'fr') {
+                const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
+                span.textContent = `Masquer ${sourceEntries.length} ${sourceTxt}`;
+            } else if (selectedLanguage === 'ar') {
+                span.textContent = `إخفاء ${sourceEntries.length} مصدر`;
+            } else {
+                span.textContent = `Hide ${sourceEntries.length} ${sourceText}`;
+            }
         } else {
             // Hide sources
             sourcesList.classList.add('hidden');
@@ -1161,7 +1214,14 @@ function displaySources(messageText, sourcesSection) {
             
             // Update button text
             const span = this.querySelector('span');
-            span.textContent = `View ${sourceEntries.length} ${sourceText}`;
+            if (selectedLanguage === 'fr') {
+                const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
+                span.textContent = `Voir ${sourceEntries.length} ${sourceTxt}`;
+            } else if (selectedLanguage === 'ar') {
+                span.textContent = `عرض ${sourceEntries.length} مصدر`;
+            } else {
+                span.textContent = `View ${sourceEntries.length} ${sourceText}`;
+            }
         }
     });
     
@@ -1174,6 +1234,8 @@ function displaySources(messageText, sourcesSection) {
     
     // Initialize feather icons
     feather.replace();
+    
+    console.log('Sources display created successfully'); // Debug log
 }
 
 // Show typing indicator

@@ -118,7 +118,7 @@ def semantic_search_images(user_message, language='en'):
             "PrefinalISPADChapter11FR_page10_img1_fce5948d.png": {
                 "keywords": [
                     # French
-                    "hypoglycémie", "gestion hypoglycémie", "traitement hypoglycémie", "sucre bas",
+                    "hypoglycmie", "gestion hypoglycémie", "traitement hypoglycémie", "sucre bas",
                     "glycémie basse", "correction hypoglycémie", "protocole hypoglycémie",
                     # English  
                     "hypoglycemia", "low blood sugar", "hypoglycemia management", "low glucose",
@@ -261,20 +261,6 @@ def find_document_similarity(user_message, conversation_history, user_identifier
         # Join documents text
         documents_text = "\n\n".join(formatted_docs)
         
-        # Language instruction
-        language_instruction = ""
-        if language:
-            if language == 'en':
-                language_instruction = "Respond in English. Structure your response with clear headings and bullet points where appropriate."
-            elif language == 'fr':
-                language_instruction = "Répondez en français. Structurez votre réponse avec des titres clairs et des puces si approprié."
-            elif language == 'ar':
-                language_instruction = "الرد باللغة العربية. قم بتنظيم إجابتك بعناوين واضحة ونقاط منظمة عند الحاجة."
-            else:
-                language_instruction = "Respond in the same language as the user. Structure your response clearly with headings and bullet points where appropriate."
-        else:
-            language_instruction = "Respond in the same language as the user. Structure your response clearly with headings and bullet points where appropriate."
-        
         # Add source information to prompt if sources exist
         source_instruction = ""
         if actual_sources:
@@ -287,40 +273,45 @@ def find_document_similarity(user_message, conversation_history, user_identifier
                     source_details.append(source['filename'])
             
             source_instruction = (
-                f"\nWhen referencing information from the provided documents, "
-                f"add 'Sources: {', '.join(source_details)}' at the end of your response."
+                f"\nIMPORTANT: At the end of your response, add 'Sources: {', '.join(source_details)}'"
             )
         
-        # IMPROVED PROMPT TEMPLATE - Well-structured responses
-        prompt = f"""You are EndoChat, an AI assistant specialized in endocrinology. Provide clear, accurate, and well-structured responses about diabetes, hormones, and endocrine disorders.
+        # Language instruction - UPDATED for patient-friendly responses
+        language_instruction = ""
+        if language:
+            if language == 'en':
+                language_instruction = "Respond in English. Give very short, simple answers that patients can understand."
+            elif language == 'fr':
+                language_instruction = "Répondez en français. Donnez des réponses  courtes et simples que les patients peuvent comprendre."
+            elif language == 'ar':
+                language_instruction = "الرد باللغة العربية. قدم إجابات قصيرة وبسيطة  يمكن للمرضى فهمها."
+            else:
+                language_instruction = "Give  short, simple answers that patients can understand."
+        else:
+            language_instruction = "Give very short, simple answers that patients can understand."
+        
+        # COMPLETELY REWRITTEN PROMPT - Much shorter and more direct
+        prompt = f"""You are EndoChat, a helpful medical endocrinology assistant for patients.
 
 {language_instruction}
 
-Relevant medical documents:
-{documents_text if documents_text else "No specific documents found for this query."}
+Medical information:
+{documents_text if documents_text else "Use your medical endicronolgy knowledge."}
 
 Previous conversation:
 {history_text}
 
-User's question: {user_message}
+Patient asks: {user_message}
 
-Instructions:
-1. Provide a well-structured, comprehensive answer to the user's question
-2. Use clear headings (##) to organize different sections of your response
-3. Use bullet points or numbered lists for clarity when listing information
-4. Use simple, patient-friendly language while being medically accurate
-5. Keep responses professional and informative
-6. Do not mention system processes, document availability, or internal operations
-7. Focus on providing practical, actionable medical information{source_instruction}
+RULES:
+1. Answer in 1-5 short sentences only
+2. Use simple words, no medical jargon
+3. Be direct and helpful
+4. Don't use headers or bullet points
+5.answer the greeting question by a welcome message
+6. Don't give long explanations {source_instruction}
 
-Structure your response with appropriate sections such as:
-- Overview/Definition (if explaining a concept)
-- Key Points or Symptoms
-- Management/Treatment options
-- Important Considerations
-- When to seek medical help (if relevant)
-
-Response:"""
+Give a short, clear answer:"""
         
         # Update conversation history
         if conversation_history and isinstance(conversation_history, list):
@@ -372,20 +363,20 @@ Response:"""
         lang_prefix = ""
         if language:
             if language == 'en':
-                lang_prefix = "Respond in English with clear structure."
+                lang_prefix = "Answer in English, keep it  short."
             elif language == 'fr':
-                lang_prefix = "Répondez en français avec une structure claire."
+                lang_prefix = "Répondez en français, soyez  bref."
             elif language == 'ar':
-                lang_prefix = "الرد باللغة العربية مع تنظيم واضح."
+                lang_prefix = "أجب بالعربية، اجعل الإجابة قصيرة ."
         
-        fallback_prompt = f"""You are EndoChat, an AI assistant specialized in endocrinology.
+        fallback_prompt = f"""You are EndoChat, a medical assistant.
 {lang_prefix}
 
-User's question: {user_message}
+Patient asks: {user_message}
 
-Please provide a helpful, well-structured response about endocrinology based on your knowledge.
-"""
+Give a short, simple answer in 1-5 sentences only."""
         return fallback_prompt, updated_history
+    
 
 def update_conversation_history(conversation_history, assistant_response, user_identifier=None):
     """Update conversation history with the assistant's response and ensure sources are properly formatted"""
