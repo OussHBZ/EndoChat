@@ -282,21 +282,51 @@ def find_document_similarity(user_message, conversation_history, user_identifier
             if language == 'en':
                 language_instruction = "Respond in English. Give very short, simple answers that patients can understand."
             elif language == 'fr':
-                language_instruction = "Répondez en français. Donnez des réponses  courtes et simples que les patients peuvent comprendre."
+                language_instruction = "Répondez en français. Donnez des réponses courtes et simples que les patients peuvent comprendre."
             elif language == 'ar':
-                language_instruction = "الرد باللغة العربية. قدم إجابات قصيرة وبسيطة  يمكن للمرضى فهمها."
+                language_instruction = "الرد باللغة العربية. قدم إجابات قصيرة وبسيطة يمكن للمرضى فهمها."
             else:
-                language_instruction = "Give  short, simple answers that patients can understand."
+                language_instruction = "Give very short, simple answers that patients can understand."
         else:
             language_instruction = "Give very short, simple answers that patients can understand."
         
+        # Check if this is a greeting message
+        is_greeting = False
+        greeting_patterns = [
+            r'^\s*(hello|hi|hey|bonjour|salut|مرحبا|السلام عليكم)\s*$',
+            r'^\s*(good\s+(morning|afternoon|evening)|bonsoir|صباح الخير|مساء الخير)\s*$',
+            r'^\s*(how\s+are\s+you|comment\s+allez-vous|كيف حالك)\s*$'
+        ]
+        
+        for pattern in greeting_patterns:
+            if re.match(pattern, user_message.lower()):
+                is_greeting = True
+                break
+        
         # COMPLETELY REWRITTEN PROMPT - Much shorter and more direct
-        prompt = f"""You are EndoChat, a helpful medical endocrinology assistant for patients.
+        if is_greeting and len(conversation_history) == 0:
+            # First message is a greeting - provide a brief welcome
+            prompt = f"""You are EndoChat, a helpful medical endocrinology assistant for patients.
+
+{language_instruction}
+
+Patient greets: {user_message}
+
+RULES:
+1. Give a very brief, friendly greeting (1 sentence)
+2. Mention you can help with endocrinology questions
+3. Use simple words
+4. Do NOT repeat this greeting in future messages
+
+Brief greeting:"""
+        else:
+            # Regular message - no greetings
+            prompt = f"""You are EndoChat, a helpful medical endocrinology assistant for patients.
 
 {language_instruction}
 
 Medical information:
-{documents_text if documents_text else "Use your medical endicronolgy knowledge."}
+{documents_text if documents_text else "Use your medical endocrinology knowledge."}
 
 Previous conversation:
 {history_text}
@@ -304,14 +334,13 @@ Previous conversation:
 Patient asks: {user_message}
 
 RULES:
-1. Answer in 1-5 short sentences only
+1. Answer in 1-5 short structured sentences only
 2. Use simple words, no medical jargon
 3. Be direct and helpful
-4. Don't use headers or bullet points
-5.answer the greeting question by a welcome message
-6. Don't give long explanations {source_instruction}
+4. Go straight to answering the question
+5. Don't give long explanations{source_instruction}
 
-Give a short, clear answer:"""
+Direct answer:"""
         
         # Update conversation history
         if conversation_history and isinstance(conversation_history, list):
@@ -363,18 +392,18 @@ Give a short, clear answer:"""
         lang_prefix = ""
         if language:
             if language == 'en':
-                lang_prefix = "Answer in English, keep it  short."
+                lang_prefix = "Answer in English, keep it short. NO greetings."
             elif language == 'fr':
-                lang_prefix = "Répondez en français, soyez  bref."
+                lang_prefix = "Répondez en français, soyez bref. PAS de salutations."
             elif language == 'ar':
-                lang_prefix = "أجب بالعربية، اجعل الإجابة قصيرة ."
+                lang_prefix = "أجب بالعربية، اجعل الإجابة قصيرة. بدون تحيات."
         
         fallback_prompt = f"""You are EndoChat, a medical assistant.
 {lang_prefix}
 
 Patient asks: {user_message}
 
-Give a short, simple answer in 1-5 sentences only."""
+Give a short, simple answer in 1-5 sentences only. Go straight to the answer, no greetings."""
         return fallback_prompt, updated_history
     
 
