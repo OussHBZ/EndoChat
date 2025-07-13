@@ -1,6 +1,6 @@
-# EndoChat
+# DiabèteChat
 
-EndoChat is an AI-powered chatbot specializing in endocrinology. It uses Retrieval Augmented Generation (RAG) to provide accurate and context-aware responses for patients seeking information about endocrine disorders, treatments, and related medical topics.
+DiabèteChat est un chatbot IA spécialisé en diabétologie, particulièrement le diabète de type 1. It uses Retrieval Augmented Generation (RAG) to provide accurate and context-aware responses for patients seeking information about endocrine disorders, treatments, and related medical topics.
 
 ## 🚀 Features
 

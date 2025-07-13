@@ -263,18 +263,18 @@ def find_document_similarity(user_message, conversation_history, user_identifier
         
         # Add source information to prompt if sources exist
         source_instruction = ""
-        if actual_sources:
-            # Create detailed source list with page numbers for the prompt
-            source_details = []
-            for source in actual_sources:
-                if source.get('page'):
-                    source_details.append(f"{source['filename']} (page {source['page']})")
-                else:
-                    source_details.append(source['filename'])
+        # if actual_sources:
+        #     # Create detailed source list with page numbers for the prompt
+        #     source_details = []
+        #     for source in actual_sources:
+        #         if source.get('page'):
+        #             source_details.append(f"{source['filename']} (page {source['page']})")
+        #         else:
+        #             source_details.append(source['filename'])
             
-            source_instruction = (
-                f"\nIMPORTANT: At the end of your response, add 'Sources: {', '.join(source_details)}'"
-            )
+        #     source_instruction = (
+        #         f"\nIMPORTANT: At the end of your response, add 'Sources: {', '.join(source_details)}'"
+        #     )
         
         # Language instruction - UPDATED for patient-friendly responses
         language_instruction = ""
@@ -306,7 +306,7 @@ def find_document_similarity(user_message, conversation_history, user_identifier
         # COMPLETELY REWRITTEN PROMPT - Much shorter and more direct
         if is_greeting and len(conversation_history) == 0:
             # First message is a greeting - provide a brief welcome
-            prompt = f"""You are EndoChat, a helpful medical endocrinology assistant for patients.
+            prompt = f"""You are DiabèteChat, a helpful medical diabetology assistant specialized in type 1 diabetes for patients.
 
 {language_instruction}
 
@@ -314,20 +314,19 @@ Patient greets: {user_message}
 
 RULES:
 1. Give a very brief, friendly greeting (1 sentence)
-2. Mention you can help with endocrinology questions
+2. Mention you can help with diabetology questions
 3. Use simple words
 4. Do NOT repeat this greeting in future messages
 
 Brief greeting:"""
         else:
             # Regular message - no greetings
-            prompt = f"""You are EndoChat, a helpful medical endocrinology assistant for patients.
+            prompt = f"""You are DiabèteChat, a helpful medical diabetology assistant specialized in type 1 diabetes for patients.
 
 {language_instruction}
 
 Medical information:
-{documents_text if documents_text else "Use your medical endocrinology knowledge."}
-
+{documents_text if documents_text else "Use your medical diabetology and type 1 diabetes knowledge."}
 Previous conversation:
 {history_text}
 
@@ -338,7 +337,8 @@ RULES:
 2. Use simple words, no medical jargon
 3. Be direct and helpful
 4. Go straight to answering the question
-5. Don't give long explanations{source_instruction}
+5. Don't give long explanations
+6. Do NOT include any sources or references in your response
 
 Direct answer:"""
         
@@ -408,77 +408,34 @@ Give a short, simple answer in 1-5 sentences only. Go straight to the answer, no
     
 
 def update_conversation_history(conversation_history, assistant_response, user_identifier=None):
-    """Update conversation history with the assistant's response and ensure sources are properly formatted"""
+    """Update conversation history with the assistant's response"""
     try:
-        # Check if the response already has a Sources section
-        has_sources_section = any([
-            "Sources:" in assistant_response,
-            "sources:" in assistant_response,
-            "SOURCES:" in assistant_response,
-            "Sources :" in assistant_response,
-            "Références:" in assistant_response,
-            "مصادر:" in assistant_response
-        ])
+        # Remove any sources from the response
+        clean_response = assistant_response
         
-        logger.debug(f"Response already has sources section: {has_sources_section}")
+        # Remove sources sections
+        sources_patterns = [
+            r'\n*Sources?:\s*[^\n]*$',
+            r'\n*Références?:\s*[^\n]*$', 
+            r'\n*مصادر:\s*[^\n]*$'
+        ]
         
-        # Get sources for this user
-        sources_text = ""
-        sources_found = False
+        for pattern in sources_patterns:
+            clean_response = re.sub(pattern, '', clean_response, flags=re.IGNORECASE)
         
-        if user_identifier:
-            filename = ''.join(c for c in user_identifier if c.isalnum())
-            sources_path = os.path.join(CONVERSATION_PATH, f"{filename}_sources.json")
-            
-            if os.path.exists(sources_path):
-                try:
-                    with open(sources_path, 'r', encoding='utf-8') as f:
-                        sources = json.load(f)
-                    
-                    if sources and len(sources) > 0:
-                        sources_found = True
-                        logger.debug(f"Found {len(sources)} sources for user {user_identifier}")
-                        
-                        # Create sources text with page numbers
-                        source_details = []
-                        for source in sources:
-                            if source.get('page'):
-                                source_details.append(f"{source['filename']} (page {source['page']})")
-                            else:
-                                source_details.append(source['filename'])
-                        
-                        sources_text = "\n\nSources: " + ", ".join(source_details)
-                except Exception as src_err:
-                    logger.error(f"Error reading sources file: {str(src_err)}")
-        
-        # Ensure sources are properly formatted in the response
-        full_response = assistant_response
-        
-        if sources_found and not has_sources_section:
-            logger.debug("Adding sources with page numbers to response")
-            full_response = assistant_response + sources_text
-        elif sources_found and has_sources_section:
-            # Check if the existing sources section has page numbers
-            sources_parts = re.split(r'(Sources:|sources:|SOURCES:|Références:|مصادر:)', assistant_response, flags=re.IGNORECASE)
-            if len(sources_parts) > 1:
-                sources_content = sources_parts[-1].strip()
-                # If sources section doesn't contain page numbers, replace it
-                if "page" not in sources_content and len(sources_content) < 50:
-                    prefix = assistant_response.split(sources_parts[-2])[0]
-                    full_response = prefix + sources_parts[-2] + " " + sources_text.replace("\n\nSources:", "")
-                    logger.debug("Replacing sources section with page numbers")
+        clean_response = clean_response.strip()
         
         # Add the assistant's response to history
         updated_history = []
         if isinstance(conversation_history, list):
             updated_history = conversation_history + [{
                 'role': 'assistant',
-                'content': full_response
+                'content': clean_response
             }]
         else:
             updated_history = [{
                 'role': 'assistant',
-                'content': full_response
+                'content': clean_response
             }]
         
         # Save conversation history

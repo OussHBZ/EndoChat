@@ -1,5 +1,5 @@
 // Initialize variables
-console.log("Chat.js loaded with improved image support");
+console.log("DiabèteChat.js loaded with improved image support");
 
 let conversationHistory = [];
 const chatHistory = document.getElementById('chat-history');
@@ -115,16 +115,16 @@ function addWelcomeMessage(language) {
     
     switch (language) {
         case 'en':
-            welcomeMessage = "Welcome to EndoChat! I'm here to help you with questions about endocrinology, diabetes, hormones, and related medical topics. How can I assist you today?";
+            welcomeMessage = "Welcome to DiabèteChat! I'm here to help you with questions about type 1 diabetes, insulin therapy, blood sugar management, and related topics. How can I assist you today?";
             break;
         case 'fr':
-            welcomeMessage = "Bienvenue sur EndoChat ! Je suis là pour vous aider avec vos questions sur l'endocrinologie, le diabète, les hormones et les sujets médicaux connexes. Comment puis-je vous aider aujourd'hui ?";
+            welcomeMessage = "Bienvenue sur DiabèteChat ! Je suis là pour vous aider avec vos questions sur le diabète de type 1, l'insulinothérapie, la gestion de la glycémie et les sujets connexes. Comment puis-je vous aider aujourd'hui ?";
             break;
         case 'ar':
-            welcomeMessage = "مرحبا بك في EndoChat! أنا هنا لمساعدتك في الأسئلة المتعلقة بأمراض الغدد الصماء والسكري والهرمونات والمواضيع الطبية ذات الصلة. كيف يمكنني مساعدتك اليوم؟";
+            welcomeMessage = "مرحبا بك في DiabèteChat! أنا هنا لمساعدتك في الأسئلة المتعلقة بالسكري من النوع الأول وعلاج الأنسولين وإدارة سكر الدم والمواضيع ذات الصلة. كيف يمكنني مساعدتك اليوم؟";
             break;
         default:
-            welcomeMessage = "Welcome to EndoChat! I'm here to help you with questions about endocrinology, diabetes, hormones, and related medical topics. How can I assist you today?";
+            welcomeMessage = "Welcome to DiabèteChat! I'm here to help you with questions about type 1 diabetes, insulin therapy, blood sugar management, and related topics. How can I assist you today?";
     }
     
     addMessageToChat('bot', welcomeMessage);
@@ -1000,7 +1000,7 @@ function removeGreetings(message) {
 
 // Process message content to extract sources
 function processMessageForSources(content) {
-    // Split content at various "Sources:" markers
+    // Remove any sources section from the content
     const sourcesMarkers = [
         'Sources:', 'sources:', 'SOURCES:', 'Sources :', 
         'Références:', 'références:', 'RÉFÉRENCES:',
@@ -1008,25 +1008,17 @@ function processMessageForSources(content) {
     ];
     
     let mainContent = content;
-    let sourcesSection = null;
     
-    // Try each marker
+    // Remove sources section completely
     for (const marker of sourcesMarkers) {
         const markerIndex = content.indexOf(marker);
         if (markerIndex !== -1) {
             mainContent = content.substring(0, markerIndex).trim();
-            sourcesSection = content.substring(markerIndex + marker.length).trim();
-            console.log('Found sources section:', sourcesSection); // Debug log
             break;
         }
     }
     
-    // If no sources found in text, try to get from server
-    if (!sourcesSection) {
-        console.log('No sources found in message content'); // Debug log
-    }
-    
-    return { mainContent, sourcesSection };
+    return { mainContent, sourcesSection: null };
 }
 
 // Clean rendered message to remove any remaining system information
@@ -1070,172 +1062,173 @@ function processCodeBlocks(messageElement) {
 
 // Display sources at the end of bot messages with a collapsible button
 function displaySources(messageText, sourcesSection) {
-    console.log('displaySources called with:', sourcesSection); // Debug log
+    // console.log('displaySources called with:', sourcesSection); // Debug log
     
-    // Check if sourcesSection exists or if the message content contains sources
-    const messageContent = messageText.textContent || messageText.innerHTML;
+    // // Check if sourcesSection exists or if the message content contains sources
+    // const messageContent = messageText.textContent || messageText.innerHTML;
     
-    // Look for sources in the message content if sourcesSection is empty
-    let sourcesToDisplay = sourcesSection;
-    if (!sourcesToDisplay && messageContent.includes('Sources:')) {
-        const sourcesMatch = messageContent.match(/Sources:\s*(.+?)(?:\n|$)/i);
-        if (sourcesMatch) {
-            sourcesToDisplay = sourcesMatch[1];
-            console.log('Extracted sources from content:', sourcesToDisplay); // Debug log
-        }
-    }
+    // // Look for sources in the message content if sourcesSection is empty
+    // let sourcesToDisplay = sourcesSection;
+    // if (!sourcesToDisplay && messageContent.includes('Sources:')) {
+    //     const sourcesMatch = messageContent.match(/Sources:\s*(.+?)(?:\n|$)/i);
+    //     if (sourcesMatch) {
+    //         sourcesToDisplay = sourcesMatch[1];
+    //         console.log('Extracted sources from content:', sourcesToDisplay); // Debug log
+    //     }
+    // }
     
-    if (!sourcesToDisplay || sourcesToDisplay.trim().length === 0) {
-        console.log('No sources to display'); // Debug log
-        return;
-    }
+    // if (!sourcesToDisplay || sourcesToDisplay.trim().length === 0) {
+    //     console.log('No sources to display'); // Debug log
+    //     return;
+    // }
     
-    // Remove the sources text from the main message content if it exists
-    if (messageContent.includes('Sources:')) {
-        const cleanedContent = messageContent.replace(/\n*Sources:\s*[^\n]*$/i, '');
-        messageText.innerHTML = formatSimpleResponse(cleanedContent);
-    }
+    // // Remove the sources text from the main message content if it exists
+    // if (messageContent.includes('Sources:')) {
+    //     const cleanedContent = messageContent.replace(/\n*Sources:\s*[^\n]*$/i, '');
+    //     messageText.innerHTML = formatSimpleResponse(cleanedContent);
+    // }
     
-    // Parse sources to count them
-    const sourceEntries = sourcesToDisplay.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    // // Parse sources to count them
+    // const sourceEntries = sourcesToDisplay.split(',').map(s => s.trim()).filter(s => s.length > 0);
     
-    if (sourceEntries.length === 0) {
-        console.log('No valid source entries found'); // Debug log
-        return;
-    }
+    // if (sourceEntries.length === 0) {
+    //     console.log('No valid source entries found'); // Debug log
+    //     return;
+    // }
     
-    console.log('Creating sources display for:', sourceEntries); // Debug log
+    // console.log('Creating sources display for:', sourceEntries); // Debug log
     
-    // Create sources container
-    const sourcesContainer = document.createElement('div');
-    sourcesContainer.className = 'sources-container mt-4 pt-3 border-t border-gray-200';
+    // // Create sources container
+    // const sourcesContainer = document.createElement('div');
+    // sourcesContainer.className = 'sources-container mt-4 pt-3 border-t border-gray-200';
     
-    // Create sources button
-    const sourcesButton = document.createElement('button');
-    sourcesButton.className = 'sources-button inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors duration-200';
+    // // Create sources button
+    // const sourcesButton = document.createElement('button');
+    // sourcesButton.className = 'sources-button inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors duration-200';
     
-    const sourceText = sourceEntries.length === 1 ? 'source' : 'sources';
-    let buttonText = `View ${sourceEntries.length} ${sourceText}`;
+    // const sourceText = sourceEntries.length === 1 ? 'source' : 'sources';
+    // let buttonText = `View ${sourceEntries.length} ${sourceText}`;
     
-    // Translate button text based on language
-    if (selectedLanguage === 'fr') {
-        const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
-        buttonText = `Voir ${sourceEntries.length} ${sourceTxt}`;
-    } else if (selectedLanguage === 'ar') {
-        buttonText = `عرض ${sourceEntries.length} مصدر`;
-    }
+    // // Translate button text based on language
+    // if (selectedLanguage === 'fr') {
+    //     const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
+    //     buttonText = `Voir ${sourceEntries.length} ${sourceTxt}`;
+    // } else if (selectedLanguage === 'ar') {
+    //     buttonText = `عرض ${sourceEntries.length} مصدر`;
+    // }
     
-    sourcesButton.innerHTML = `
-        <i data-feather="file-text" class="mr-2 w-4 h-4"></i>
-        <span>${buttonText}</span>
-        <i data-feather="chevron-down" class="ml-2 w-4 h-4 transition-transform duration-200" id="sources-chevron-${Date.now()}"></i>
-    `;
+    // sourcesButton.innerHTML = `
+    //     <i data-feather="file-text" class="mr-2 w-4 h-4"></i>
+    //     <span>${buttonText}</span>
+    //     <i data-feather="chevron-down" class="ml-2 w-4 h-4 transition-transform duration-200" id="sources-chevron-${Date.now()}"></i>
+    // `;
     
-    // Create sources list (initially hidden)
-    const sourcesList = document.createElement('div');
-    sourcesList.className = 'sources-list mt-3 hidden';
-    sourcesList.id = `sources-list-${Date.now()}`;
+    // // Create sources list (initially hidden)
+    // const sourcesList = document.createElement('div');
+    // sourcesList.className = 'sources-list mt-3 hidden';
+    // sourcesList.id = `sources-list-${Date.now()}`;
     
-    // Add sources header
-    const sourcesHeader = document.createElement('div');
-    sourcesHeader.className = 'sources-header text-sm font-semibold text-gray-700 mb-2';
+    // // Add sources header
+    // const sourcesHeader = document.createElement('div');
+    // sourcesHeader.className = 'sources-header text-sm font-semibold text-gray-700 mb-2';
     
-    switch (selectedLanguage) {
-        case 'en':
-            sourcesHeader.textContent = 'References:';
-            break;
-        case 'fr':
-            sourcesHeader.textContent = 'Références:';
-            break;
-        case 'ar':
-            sourcesHeader.textContent = 'المراجع:';
-            break;
-        default:
-            sourcesHeader.textContent = 'References:';
-    }
+    // switch (selectedLanguage) {
+    //     case 'en':
+    //         sourcesHeader.textContent = 'References:';
+    //         break;
+    //     case 'fr':
+    //         sourcesHeader.textContent = 'Références:';
+    //         break;
+    //     case 'ar':
+    //         sourcesHeader.textContent = 'المراجع:';
+    //         break;
+    //     default:
+    //         sourcesHeader.textContent = 'References:';
+    // }
     
-    sourcesList.appendChild(sourcesHeader);
+    // sourcesList.appendChild(sourcesHeader);
     
-    // Add individual sources with page numbers
-    sourceEntries.forEach(sourceEntry => {
-        const sourceItem = document.createElement('div');
-        sourceItem.className = 'source-item mb-2 p-2 bg-gray-50 rounded border-l-4 border-blue-300';
+    // // Add individual sources with page numbers
+    // sourceEntries.forEach(sourceEntry => {
+    //     const sourceItem = document.createElement('div');
+    //     sourceItem.className = 'source-item mb-2 p-2 bg-gray-50 rounded border-l-4 border-blue-300';
         
-        // Extract filename and page number if present
-        let filename = sourceEntry;
-        let pageDisplay = '';
+    //     // Extract filename and page number if present
+    //     let filename = sourceEntry;
+    //     let pageDisplay = '';
         
-        // Check if source has page number in format "filename.pdf (page X)"
-        const pageMatch = sourceEntry.match(/^(.+?)\s*\(page\s+(\d+)\)$/i);
-        if (pageMatch) {
-            filename = pageMatch[1].trim();
-            pageDisplay = ` - Page ${pageMatch[2]}`;
-        }
+    //     // Check if source has page number in format "filename.pdf (page X)"
+    //     const pageMatch = sourceEntry.match(/^(.+?)\s*\(page\s+(\d+)\)$/i);
+    //     if (pageMatch) {
+    //         filename = pageMatch[1].trim();
+    //         pageDisplay = ` - Page ${pageMatch[2]}`;
+    //     }
         
-        const sourceLink = document.createElement('a');
-        sourceLink.href = `/download_pdf?filename=${encodeURIComponent(filename)}`;
-        sourceLink.className = 'source-download-link inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline';
-        sourceLink.target = '_blank';
+    //     const sourceLink = document.createElement('a');
+    //     sourceLink.href = `/download_pdf?filename=${encodeURIComponent(filename)}`;
+    //     sourceLink.className = 'source-download-link inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline';
+    //     sourceLink.target = '_blank';
         
-        sourceLink.innerHTML = `
-            <i data-feather="download" class="mr-2 text-blue-500 w-4 h-4"></i>
-            ${filename}${pageDisplay}
-        `;
+    //     sourceLink.innerHTML = `
+    //         <i data-feather="download" class="mr-2 text-blue-500 w-4 h-4"></i>
+    //         ${filename}${pageDisplay}
+    //     `;
         
-        sourceItem.appendChild(sourceLink);
-        sourcesList.appendChild(sourceItem);
-    });
+    //     sourceItem.appendChild(sourceLink);
+    //     sourcesList.appendChild(sourceItem);
+    // });
     
-    // Add click event to toggle sources
-    sourcesButton.addEventListener('click', function() {
-        const chevron = this.querySelector('[data-feather="chevron-down"]');
+    // // Add click event to toggle sources
+    // sourcesButton.addEventListener('click', function() {
+    //     const chevron = this.querySelector('[data-feather="chevron-down"]');
         
-        if (sourcesList.classList.contains('hidden')) {
-            // Show sources
-            sourcesList.classList.remove('hidden');
-            sourcesList.classList.add('block');
-            chevron.style.transform = 'rotate(180deg)';
+    //     if (sourcesList.classList.contains('hidden')) {
+    //         // Show sources
+    //         sourcesList.classList.remove('hidden');
+    //         sourcesList.classList.add('block');
+    //         chevron.style.transform = 'rotate(180deg)';
             
-            // Update button text
-            const span = this.querySelector('span');
-            if (selectedLanguage === 'fr') {
-                const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
-                span.textContent = `Masquer ${sourceEntries.length} ${sourceTxt}`;
-            } else if (selectedLanguage === 'ar') {
-                span.textContent = `إخفاء ${sourceEntries.length} مصدر`;
-            } else {
-                span.textContent = `Hide ${sourceEntries.length} ${sourceText}`;
-            }
-        } else {
-            // Hide sources
-            sourcesList.classList.add('hidden');
-            sourcesList.classList.remove('block');
-            chevron.style.transform = 'rotate(0deg)';
+    //         // Update button text
+    //         const span = this.querySelector('span');
+    //         if (selectedLanguage === 'fr') {
+    //             const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
+    //             span.textContent = `Masquer ${sourceEntries.length} ${sourceTxt}`;
+    //         } else if (selectedLanguage === 'ar') {
+    //             span.textContent = `إخفاء ${sourceEntries.length} مصدر`;
+    //         } else {
+    //             span.textContent = `Hide ${sourceEntries.length} ${sourceText}`;
+    //         }
+    //     } else {
+    //         // Hide sources
+    //         sourcesList.classList.add('hidden');
+    //         sourcesList.classList.remove('block');
+    //         chevron.style.transform = 'rotate(0deg)';
             
-            // Update button text
-            const span = this.querySelector('span');
-            if (selectedLanguage === 'fr') {
-                const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
-                span.textContent = `Voir ${sourceEntries.length} ${sourceTxt}`;
-            } else if (selectedLanguage === 'ar') {
-                span.textContent = `عرض ${sourceEntries.length} مصدر`;
-            } else {
-                span.textContent = `View ${sourceEntries.length} ${sourceText}`;
-            }
-        }
-    });
+    //         // Update button text
+    //         const span = this.querySelector('span');
+    //         if (selectedLanguage === 'fr') {
+    //             const sourceTxt = sourceEntries.length === 1 ? 'source' : 'sources';
+    //             span.textContent = `Voir ${sourceEntries.length} ${sourceTxt}`;
+    //         } else if (selectedLanguage === 'ar') {
+    //             span.textContent = `عرض ${sourceEntries.length} مصدر`;
+    //         } else {
+    //             span.textContent = `View ${sourceEntries.length} ${sourceText}`;
+    //         }
+    //     }
+    // });
     
-    // Assemble sources container
-    sourcesContainer.appendChild(sourcesButton);
-    sourcesContainer.appendChild(sourcesList);
+    // // Assemble sources container
+    // sourcesContainer.appendChild(sourcesButton);
+    // sourcesContainer.appendChild(sourcesList);
     
-    // Add sources to message
-    messageText.appendChild(sourcesContainer);
+    // // Add sources to message
+    // messageText.appendChild(sourcesContainer);
     
-    // Initialize feather icons
-    feather.replace();
+    // // Initialize feather icons
+    // feather.replace();
     
-    console.log('Sources display created successfully'); // Debug log
+    // console.log('Sources display created successfully'); // Debug log
+    return; 
 }
 
 // Show typing indicator
